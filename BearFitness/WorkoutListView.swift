@@ -57,18 +57,18 @@ struct WorkoutListView: View {
                     }
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 16) {
+                        LazyVStack(alignment: .leading, spacing: 16) {
+                            // Title as inline content (matches Figma layout)
+                            Text("My Apple Fitness Workout")
+                                .font(.workoutTitle)
+                                .foregroundStyle(Color.darkText)
+                                .padding(.bottom, 4)
+
                             ForEach(workouts, id: \.uuid) { workout in
                                 NavigationLink {
-                                    WorkoutDetailScreen(
-                                        workout: workout,
-                                        manager: manager
-                                    )
+                                    WorkoutDetailScreen(workout: workout, manager: manager)
                                 } label: {
-                                    WorkoutCard(
-                                        workout: workout,
-                                        showPoints: hasPoints(workout)
-                                    )
+                                    WorkoutCard(workout: workout, showPoints: hasPoints(workout))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -79,20 +79,15 @@ struct WorkoutListView: View {
                     }
                 }
             }
-            .navigationTitle("")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Text("My Apple Fitness Workout")
-                        .font(.workoutTitle)
-                        .foregroundStyle(Color.darkText)
-                }
-            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
         }
         .task {
             await loadData()
         }
     }
 
+    // MARK: - Load Data
     func loadData() async {
         isLoading = true
         errorMessage = nil
@@ -105,19 +100,16 @@ struct WorkoutListView: View {
         isLoading = false
     }
 
+    /// Placeholder: show points badge for workouts that were tracked with a HIIT program
     func hasPoints(_ workout: HKWorkout) -> Bool {
-        // TODO: Replace with real logic — check if the workout
-        // was paired with a HIIT program
-        guard let index = workouts.firstIndex(where: {
-            $0.uuid == workout.uuid
-        }) else { return false }
-        return index < 2  // demo: first 2 workouts show points
+        // TODO: Check if workout was paired with a program
+        // For now, show points on first two workouts as demo
+        guard let index = workouts.firstIndex(where: { $0.uuid == workout.uuid }) else { return false }
+        return index < 2
     }
 }
 
-// MARK: - Workout Card
-// Matches Figma "Pill / Exercise Details" component
-
+// MARK: - Workout Card (matches Figma "Pill / Exercise Details")
 struct WorkoutCard: View {
     let workout: HKWorkout
     var showPoints: Bool = false
@@ -128,6 +120,7 @@ struct WorkoutCard: View {
             workoutIcon
                 .frame(width: 50, height: 50)
 
+            // Workout info
             VStack(alignment: .leading, spacing: 2) {
                 Text(workout.workoutActivityType.name)
                     .font(.workoutTypeSmall)
@@ -140,22 +133,22 @@ struct WorkoutCard: View {
 
             Spacer()
 
+            // Right side: points badge + date
             VStack(alignment: .trailing, spacing: 4) {
                 if showPoints {
                     HStack(spacing: 3) {
                         Text("+20")
                             .font(.pointsBadge)
                             .gradientForeground()
-                        Image(systemName: "star.circle.fill")
+                        Image(systemName: "star.fill")
                             .font(.system(size: 12))
                             .foregroundStyle(Color.gradientPurple)
                     }
                 }
-                Text(workout.startDate.formatted(
-                    date: .numeric, time: .omitted
-                ))
-                .font(.dateCaption)
-                .foregroundStyle(Color.darkText)
+
+                Text(workout.startDate.formatted(date: .numeric, time: .omitted))
+                    .font(.dateCaption)
+                    .foregroundStyle(Color.darkText)
             }
         }
         .padding(.horizontal, 14)
@@ -165,26 +158,33 @@ struct WorkoutCard: View {
         .cardShadow()
     }
 
+    // MARK: - Workout Icon
     @ViewBuilder
     var workoutIcon: some View {
         let iconName: String = {
             switch workout.workoutActivityType {
-            case .running:   return "figure.run"
-            case .cycling:   return "figure.outdoor.cycle"
-            case .swimming:  return "figure.pool.swim"
-            case .walking:   return "figure.walk"
-            case .yoga:      return "figure.yoga"
-            case .functionalStrengthTraining:
-                return "figure.strengthtraining.traditional"
-            case .highIntensityIntervalTraining:
-                return "figure.highintensity.intervaltraining"
-            default:         return "figure.mixed.cardio"
+            case .running:                       return "figure.run"
+            case .cycling:                       return "figure.outdoor.cycle"
+            case .swimming:                      return "figure.pool.swim"
+            case .walking:                       return "figure.walk"
+            case .yoga:                          return "figure.yoga"
+            case .functionalStrengthTraining:    return "figure.strengthtraining.traditional"
+            case .highIntensityIntervalTraining: return "figure.highintensity.intervaltraining"
+            case .rowing:                        return "figure.rower"
+            case .elliptical:                    return "figure.elliptical"
+            case .basketball:                    return "figure.basketball"
+            case .soccer:                        return "figure.soccer"
+            case .tennis:                        return "figure.tennis"
+            default:                             return "figure.mixed.cardio"
             }
         }()
 
         Image(systemName: iconName)
             .font(.system(size: 28))
-            .foregroundStyle(LinearGradient.purpleBlue)
+            .foregroundStyle(
+                LinearGradient.purpleBlue
+            )
+            .frame(width: 50, height: 50)
     }
 
     func formatDuration(_ seconds: TimeInterval) -> String {
