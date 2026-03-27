@@ -11,7 +11,8 @@ import SwiftUI
 struct BearFitnessApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+//            ContentView()
+            MainTabView()
         }
     }
 }
