@@ -127,7 +127,7 @@ struct WorkoutListView: View {
                 // Title
                 Text("My Apple Fitness Workout")
                     .font(.workoutTitle)
-                    .foregroundStyle(Color.darkText)
+                    .foregroundStyle(Color.appDarkText)
                     .padding(.bottom, 0)
 
                 // Filter pills
@@ -196,7 +196,7 @@ struct WorkoutListView: View {
                 .foregroundStyle(Color.gray2)
             Text("No workouts found")
                 .font(.headline)
-                .foregroundStyle(Color.darkText)
+                .foregroundStyle(Color.appDarkText)
             Text("Complete a workout with Apple Fitness\nand it will appear here.")
                 .font(.dateCaptionSmall)
                 .foregroundStyle(Color.gray1)
@@ -265,7 +265,7 @@ struct FilterPill: View {
             .background(
                 isSelected
                 ? AnyShapeStyle(LinearGradient.purpleBlue)
-                : AnyShapeStyle(Color.lightGray)
+                : AnyShapeStyle(Color.appLightGray)
             )
             .foregroundStyle(isSelected ? .white : Color.gray1)
             .clipShape(Capsule())
@@ -291,11 +291,12 @@ struct WorkoutCard: View {
 
                 Text(formatDuration(workout.duration))
                     .font(.durationSmall)
-                    .foregroundStyle(Color.darkText)
+                    .foregroundStyle(Color.appDarkText)
 
                 // Quick stats subtitle
                 HStack(spacing: 12) {
-                    if let cal = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) {
+                    if let cal = workout.statistics(for: HKQuantityType(.activeEnergyBurned))?
+                        .sumQuantity()?.doubleValue(for: .kilocalorie()) {
                         Label(String(format: "%.0f kcal", cal), systemImage: "flame.fill")
                     }
                     if let dist = workout.totalDistance?.doubleValue(for: .meter()) {
@@ -323,7 +324,7 @@ struct WorkoutCard: View {
 
                 Text(workout.startDate.formatted(date: .numeric, time: .omitted))
                     .font(.dateCaption)
-                    .foregroundStyle(Color.darkText)
+                    .foregroundStyle(Color.appDarkText)
             }
         }
         .padding(.horizontal, 14)

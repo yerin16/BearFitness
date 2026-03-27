@@ -82,7 +82,7 @@ struct HeartRateZoneBar: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Heart Rate Zones")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.darkText)
+                .foregroundStyle(Color.appDarkText)
 
             // Colored bar
             GeometryReader { geo in
@@ -110,7 +110,7 @@ struct HeartRateZoneBar: View {
 
                             Text(item.zone.label)
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Color.darkText)
+                                .foregroundStyle(Color.appDarkText)
 
                             Text(item.zone.subtitle)
                                 .font(.system(size: 11))
@@ -120,7 +120,7 @@ struct HeartRateZoneBar: View {
 
                             Text(percentString(item.count))
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Color.darkText)
+                                .foregroundStyle(Color.appDarkText)
                         }
                     }
                 }

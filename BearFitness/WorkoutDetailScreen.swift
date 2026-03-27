@@ -59,7 +59,7 @@ struct WorkoutDetailScreen: View {
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.darkText)
+                        .foregroundStyle(Color.appDarkText)
                 }
             }
         }
@@ -105,7 +105,7 @@ struct WorkoutDetailScreen: View {
                     .dateTime.month(.wide).day().year().hour().minute()
                 ))
                 .font(.dateCaptionSmall)
-                .foregroundStyle(Color.darkText)
+                .foregroundStyle(Color.appDarkText)
             }
         }
         .padding(.top, 8)
@@ -129,7 +129,7 @@ struct WorkoutDetailScreen: View {
     var heartRateTitle: some View {
         Text("Heart Rate")
             .font(.sectionHeader)
-            .foregroundStyle(Color.darkText)
+            .foregroundStyle(Color.appDarkText)
     }
 
     // MARK: - Apply Program Banner
@@ -256,7 +256,7 @@ struct WorkoutDetailScreen: View {
     var mapSection: some View {
         Text("Map")
             .font(.sectionHeader)
-            .foregroundStyle(Color.darkText)
+            .foregroundStyle(Color.appDarkText)
 
         if isLoadingRoute {
             ProgressView("Loading route...")
@@ -409,7 +409,8 @@ struct WorkoutDetailScreen: View {
     }
 
     var caloriesString: String {
-        if let cal = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) {
+        if let cal = workout.statistics(for: HKQuantityType(.activeEnergyBurned))?
+            .sumQuantity()?.doubleValue(for: .kilocalorie()) {
             return String(format: "%.0fcal", cal)
         }
         return "0cal"
@@ -439,10 +440,10 @@ struct StatCard: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.statLabel)
-                .foregroundStyle(Color.darkText)
+                .foregroundStyle(Color.appDarkText)
             Text(value)
                 .font(.statValue)
-                .foregroundStyle(Color.darkText)
+                .foregroundStyle(Color.appDarkText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
