@@ -1,17 +1,8 @@
 //
-//  WorkoutDetailScreen.swift
+//  WorkoutDetailView.swift
 //  BearFitness
 //
 //  Created by Yerin Kang on 3/27/26.
-//
-
-//
-//  WorkoutDetailScreen.swift
-//  WorkoutTracker
-//
-//  Screen 2: Workout Detail
-//  Performance: downsampled HR chart, binary search for route HR matching
-//  UX: swipe-back from left edge, minimal x-axis labels
 //
 
 import SwiftUI
@@ -19,7 +10,7 @@ import HealthKit
 import MapKit
 import Charts
 
-struct WorkoutDetailScreen: View {
+struct WorkoutDetailView: View {
     let workout: HKWorkout
     let manager: HealthKitManager
 

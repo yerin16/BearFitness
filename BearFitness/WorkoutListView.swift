@@ -142,7 +142,7 @@ struct WorkoutListView: View {
 
                     ForEach(group.workouts, id: \.uuid) { workout in
                         NavigationLink {
-                            WorkoutDetailScreen(workout: workout, manager: manager)
+                            WorkoutDetailView(workout: workout, manager: manager)
                         } label: {
                             WorkoutCard(workout: workout, showPoints: hasPoints(workout))
                         }
