@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct BearFitnessApp: App {
@@ -14,5 +15,6 @@ struct BearFitnessApp: App {
 //            ContentView()
             MainTabView()
         }
+        .modelContainer(for: HIITProgram.self)
     }
 }
