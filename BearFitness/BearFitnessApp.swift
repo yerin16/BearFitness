@@ -15,6 +15,6 @@ struct BearFitnessApp: App {
 //            ContentView()
             MainTabView()
         }
-        .modelContainer(for: HIITProgram.self)
+        .modelContainer(for: [HIITProgram.self, WorkoutSession.self])
     }
 }

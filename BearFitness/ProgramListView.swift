@@ -20,6 +20,7 @@ struct ProgramListView: View {
     @State private var selectedTab: ProgramTab = .myPrograms
     @State private var showCreateSheet = false
     @State private var programToEdit: HIITProgram?
+    @State private var programToStart: HIITProgram?
 
     var body: some View {
         NavigationStack {
@@ -45,7 +46,7 @@ struct ProgramListView: View {
                     case .suggestions:
                         placeholderContent("Suggestions coming soon")
                     case .history:
-                        placeholderContent("History coming soon")
+                        SessionHistoryView()
                     }
 
                     Spacer()
@@ -76,6 +77,9 @@ struct ProgramListView: View {
             }
             .sheet(item: $programToEdit) { program in
                 EditProgramView(program: program)
+            }
+            .fullScreenCover(item: $programToStart) { program in
+                TimerView(program: program)
             }
         }
     }
@@ -139,6 +143,8 @@ struct ProgramListView: View {
                                 deleteProgram(program)
                             }, onEdit: {
                                 programToEdit = program
+                            }, onStart: {
+                                programToStart = program
                             })
                         }
                     }
@@ -171,6 +177,7 @@ struct ProgramCard: View {
     let program: HIITProgram
     let onDelete: () -> Void
     let onEdit: () -> Void
+    let onStart: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -235,7 +242,7 @@ struct ProgramCard: View {
 
                 // Play button (bottom-right)
                 Button {
-                    // TODO: Start interval timer
+                    onStart()
                 } label: {
                     Image(systemName: "play.circle.fill")
                         .font(.system(size: 30))
