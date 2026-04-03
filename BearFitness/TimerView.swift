@@ -217,73 +217,64 @@ struct CompletionView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                // Checkmark
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 64))
-                    .foregroundStyle(Color.gradientBlue)
-                    .padding(.top, 32)
+            VStack(spacing: 0) {
+                // Top: checkmark + title + summary (fixed)
+                VStack(spacing: 16) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 56))
+                        .foregroundStyle(Color.gradientBlue)
+                        .padding(.top, 24)
 
-                Text("Workout Complete!")
-                    .font(.system(size: 24, weight: .heavy))
-                    .foregroundStyle(Color.appDarkText)
+                    Text("Workout Complete!")
+                        .font(.system(size: 24, weight: .heavy))
+                        .foregroundStyle(Color.appDarkText)
 
-                // Summary
-                VStack(spacing: 12) {
-                    Text(engine.programName)
-                        .font(.system(size: 18, weight: .bold))
-                        .gradientForeground()
+                    // Summary card
+                    VStack(spacing: 12) {
+                        Text(engine.programName)
+                            .font(.system(size: 18, weight: .bold))
+                            .gradientForeground()
 
-                    HStack(spacing: 20) {
-                        summaryItem(label: "Duration", value: {
-                            let m = engine.totalElapsedSeconds / 60
-                            let s = engine.totalElapsedSeconds % 60
-                            return String(format: "%d:%02d", m, s)
-                        }())
-                        summaryItem(label: "Sections", value: "\(engine.completedSections.count)")
-                        summaryItem(label: "Type", value: engine.workoutType)
+                        HStack(spacing: 20) {
+                            summaryItem(label: "Duration", value: {
+                                let m = engine.totalElapsedSeconds / 60
+                                let s = engine.totalElapsedSeconds % 60
+                                return String(format: "%d:%02d", m, s)
+                            }())
+                            summaryItem(label: "Sections", value: "\(engine.completedSections.count)")
+                            summaryItem(label: "Type", value: engine.workoutType)
+                        }
                     }
+                    .padding(16)
+                    .background(Color.appLightGray)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .padding(.horizontal, 20)
                 }
-                .padding(20)
-                .background(Color.appLightGray)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .padding(.horizontal, 20)
 
-                // Section breakdown
+                // Middle: scrollable section breakdown
                 if !engine.completedSections.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Section Breakdown")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(Color.appDarkText)
                             .padding(.horizontal, 20)
+                            .padding(.top, 16)
 
                         ScrollView {
-                            VStack(spacing: 6) {
+                            VStack(spacing: 8) {
                                 ForEach(engine.completedSections) { section in
-                                    HStack {
-                                        Circle()
-                                            .fill(section.phase.color)
-                                            .frame(width: 10, height: 10)
-                                        Text(section.phase.rawValue)
-                                            .font(.system(size: 12, weight: .medium))
-                                            .foregroundStyle(Color.appDarkText)
-                                        Spacer()
-                                        Text(section.formattedActualDuration)
-                                            .font(.system(size: 12, weight: .semibold))
-                                            .foregroundStyle(Color.gray1)
-                                    }
-                                    .padding(.horizontal, 20)
+                                    sectionCard(section)
                                 }
                             }
+                            .padding(.bottom, 8)
                         }
-                        .frame(maxHeight: 200)
                     }
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
 
-                // Buttons
-                VStack(spacing: 12) {
+                // Bottom: buttons (always visible, pinned)
+                VStack(spacing: 10) {
                     Button {
                         onAction(true)
                     } label: {
@@ -306,10 +297,63 @@ struct CompletionView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
+                .padding(.top, 12)
             }
             .background(Color.white)
         }
         .interactiveDismissDisabled()
+    }
+
+    // MARK: - Section Card
+    func sectionCard(_ section: SessionSection) -> some View {
+        HStack(spacing: 12) {
+            // Colored left bar
+            RoundedRectangle(cornerRadius: 3)
+                .fill(section.phase.color)
+                .frame(width: 4)
+
+            // Phase icon + info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(section.phase.rawValue)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(section.phase.color)
+
+                if section.roundNumber > 0 {
+                    Text("Round \(section.roundNumber) · Set \(section.intervalNumber)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.gray1)
+                }
+            }
+
+            Spacer()
+
+            // Time + completion
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(section.formattedActualDuration)
+                    .font(.system(size: 16, weight: .heavy))
+                    .foregroundStyle(Color.appDarkText)
+
+                // Planned vs actual
+                let planned = section.plannedDurationSeconds
+                let actual = section.actualDurationSeconds
+                if planned > 0 {
+                    let pct = min(Int(Double(actual) / Double(planned) * 100), 100)
+                    HStack(spacing: 4) {
+                        Image(systemName: pct >= 90 ? "checkmark.circle.fill" : "clock")
+                            .font(.system(size: 10))
+                        Text("\(pct)%")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundStyle(pct >= 90 ? Color.gradientBlue : Color.gray2)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(minHeight: 56)
+        .background(Color.appLightGray)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 20)
     }
 
     func summaryItem(label: String, value: String) -> some View {
