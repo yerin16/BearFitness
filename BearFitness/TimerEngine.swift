@@ -68,6 +68,7 @@ final class TimerEngine {
     }
 
     var totalRemainingSeconds: Int {
+        guard currentSectionIndex < sections.count else { return 0 }
         let remaining = sections[currentSectionIndex...].dropFirst().reduce(0) { $0 + $1.durationSeconds }
         return remaining + secondsRemaining
     }
@@ -149,12 +150,17 @@ final class TimerEngine {
     // MARK: - Controls
     func start() {
         guard state == .idle || state == .paused else { return }
+        // If no sections (all durations were 0), immediately complete
+        guard !sections.isEmpty else {
+            state = .completed
+            return
+        }
         if state == .idle {
             startedAt = Date()
             sectionStartTime = Date()
         }
         if state == .paused {
-            sectionStartTime = Date() // reset for tracking
+            sectionStartTime = Date()
         }
         state = .running
         startTimer()
