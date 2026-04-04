@@ -299,7 +299,8 @@ struct WorkoutCard: View {
                         .sumQuantity()?.doubleValue(for: .kilocalorie()) {
                         Label(String(format: "%.0f kcal", cal), systemImage: "flame.fill")
                     }
-                    if let dist = workout.totalDistance?.doubleValue(for: .meter()) {
+                    if let dist = workout.statistics(for: HKQuantityType(.distanceWalkingRunning))?
+                        .sumQuantity()?.doubleValue(for: .meter()) {
                         let mi = dist / 1609.34
                         Label(String(format: "%.1f mi", mi), systemImage: "map.fill")
                     }
@@ -358,14 +359,35 @@ extension HKWorkoutActivityType {
         case .cycling:                       return "figure.outdoor.cycle"
         case .swimming:                      return "figure.pool.swim"
         case .walking:                       return "figure.walk"
+        case .hiking:                        return "figure.hiking"
         case .yoga:                          return "figure.yoga"
         case .functionalStrengthTraining:    return "figure.strengthtraining.traditional"
+        case .traditionalStrengthTraining:   return "figure.strengthtraining.traditional"
         case .highIntensityIntervalTraining: return "figure.highintensity.intervaltraining"
         case .rowing:                        return "figure.rower"
         case .elliptical:                    return "figure.elliptical"
+        case .stairClimbing:                 return "figure.stair.stepper"
+        case .jumpRope:                      return "figure.jumprope"
+        case .mixedCardio:                   return "figure.mixed.cardio"
+        case .dance:                         return "figure.dance"
+        case .coreTraining:                  return "figure.core.training"
+        case .crossTraining:                 return "figure.cross.training"
+        case .pilates:                       return "figure.pilates"
         case .basketball:                    return "figure.basketball"
         case .soccer:                        return "figure.soccer"
         case .tennis:                        return "figure.tennis"
+        case .volleyball:                    return "figure.volleyball"
+        case .badminton:                     return "figure.badminton"
+        case .baseball:                      return "figure.baseball"
+        case .golf:                          return "figure.golf"
+        case .boxing:                        return "figure.boxing"
+        case .kickboxing:                    return "figure.kickboxing"
+        case .martialArts:                   return "figure.martial.arts"
+        case .climbing:                      return "figure.climbing"
+        case .surfingSports:                 return "figure.surfing"
+        case .snowboarding:                  return "figure.snowboarding"
+        case .skatingSports:                 return "figure.skating"
+        case .cooldown:                      return "figure.cooldown"
         default:                             return "figure.mixed.cardio"
         }
     }

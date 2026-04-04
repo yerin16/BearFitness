@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import AVFoundation
 
 @Observable
 final class TimerEngine {
@@ -32,6 +33,35 @@ final class TimerEngine {
     private(set) var completedSections: [SessionSection] = []
 
     private var timer: Timer?
+    private let synthesizer = AVSpeechSynthesizer()
+
+    // MARK: - Voice Announcements
+    private func speak(_ text: String) {
+        synthesizer.stopSpeaking(at: .immediate)
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        utterance.volume = 1.0
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        synthesizer.speak(utterance)
+    }
+
+    private func announcePhase(_ phase: WorkoutPhase) {
+        switch phase {
+        case .warmUp:        speak("Warm up")
+        case .highIntensity: speak("High intensity")
+        case .lowIntensity:  speak("Low intensity")
+        case .coolDown:      speak("Cool down")
+        }
+    }
+
+    private func announceCountdown(_ seconds: Int) {
+        switch seconds {
+        case 3: speak("3")
+        case 2: speak("2")
+        case 1: speak("1")
+        default: break
+        }
+    }
 
     // MARK: - Computed
     var currentSection: TimerSection? {
@@ -164,6 +194,10 @@ final class TimerEngine {
         }
         state = .running
         startTimer()
+        // Announce the first section when starting
+        if let phase = currentSection?.phase {
+            announcePhase(phase)
+        }
     }
 
     func pause() {
@@ -194,15 +228,19 @@ final class TimerEngine {
             sectionStartTime = Date()
             return
         }
-        // Go back: don't record, just move back
         currentSectionIndex -= 1
         secondsRemaining = sections[currentSectionIndex].durationSeconds
         sectionStartTime = Date()
+        // Announce the phase we went back to
+        if let phase = currentSection?.phase {
+            announcePhase(phase)
+        }
     }
 
     func stop() {
         timer?.invalidate()
         timer = nil
+        synthesizer.stopSpeaking(at: .immediate)
         state = .idle
     }
 
@@ -223,6 +261,11 @@ final class TimerEngine {
 
         if secondsRemaining > 0 {
             secondsRemaining -= 1
+        }
+
+        // Countdown voice: 3, 2, 1
+        if secondsRemaining > 0 && secondsRemaining <= 3 {
+            announceCountdown(secondsRemaining)
         }
 
         if secondsRemaining == 0 {
@@ -254,9 +297,14 @@ final class TimerEngine {
             state = .completed
             timer?.invalidate()
             timer = nil
+            speak("Workout complete!")
         } else {
             secondsRemaining = sections[currentSectionIndex].durationSeconds
             sectionStartTime = Date()
+            // Announce the new phase
+            if let phase = currentSection?.phase {
+                announcePhase(phase)
+            }
         }
     }
 
