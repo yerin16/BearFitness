@@ -37,16 +37,13 @@ struct SessionHistoryView: View {
                         NavigationLink {
                             SessionDetailView(session: session)
                         } label: {
-                            SessionCard(session: session)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                modelContext.delete(session)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
+                            SessionCard(session: session) {
+                                withAnimation {
+                                    modelContext.delete(session)
+                                }
                             }
                         }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -59,10 +56,11 @@ struct SessionHistoryView: View {
 // MARK: - Session Card
 struct SessionCard: View {
     let session: WorkoutSession
+    let onDelete: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top: name · type
+            // Top: name · type + delete button
             HStack(spacing: 5) {
                 Image(systemName: iconForType(session.workoutType))
                     .font(.system(size: 12))
@@ -82,6 +80,15 @@ struct SessionCard: View {
                     .gradientForeground()
 
                 Spacer()
+
+                // Delete button (top-right)
+                Button {
+                    onDelete()
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 14))
+                        .foregroundStyle(LinearGradient.purpleBlue)
+                }
             }
 
             // Date
@@ -128,6 +135,7 @@ struct SessionCard: View {
         case "Elliptical":     return "figure.elliptical"
         case "Jump Rope":      return "figure.jumprope"
         case "Stair Climbing": return "figure.stair.stepper"
+        case "Mixed Cardio":   return "figure.mixed.cardio"
         default:               return "figure.mixed.cardio"
         }
     }
@@ -298,6 +306,7 @@ struct SessionDetailView: View {
         case "Elliptical":     return "figure.elliptical"
         case "Jump Rope":      return "figure.jumprope"
         case "Stair Climbing": return "figure.stair.stepper"
+        case "Mixed Cardio":   return "figure.mixed.cardio"
         default:               return "figure.mixed.cardio"
         }
     }
