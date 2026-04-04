@@ -66,7 +66,7 @@ final class HIITProgram: Identifiable {
     /// Available workout types (cardio focused for HIIT)
     static let workoutTypes = [
         "Running", "Walking", "Cycling", "Swimming",
-        "Rowing", "Elliptical", "Jump Rope", "Stair Climbing"
+        "Rowing", "Elliptical", "Jump Rope", "Stair Climbing", "Mixed Cardio"
     ]
 
     /// Map string to SF Symbol
@@ -80,6 +80,7 @@ final class HIITProgram: Identifiable {
         case "Elliptical":      return "figure.elliptical"
         case "Jump Rope":       return "figure.jumprope"
         case "Stair Climbing":  return "figure.stair.stepper"
+        case "Mixed Cardio":    return "figure.mixed.cardio"
         default:                return "figure.mixed.cardio"
         }
     }

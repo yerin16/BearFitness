@@ -43,11 +43,11 @@ enum HeartRateZone: CaseIterable {
 
     var color: Color {
         switch self {
-        case .zone1: return Color(red: 0.55, green: 0.55, blue: 0.55) // Gray
-        case .zone2: return Color(red: 0.30, green: 0.70, blue: 0.90) // Light blue
-        case .zone3: return Color(red: 0.30, green: 0.80, blue: 0.40) // Green
-        case .zone4: return Color(red: 1.00, green: 0.65, blue: 0.00) // Orange
-        case .zone5: return Color(red: 0.90, green: 0.20, blue: 0.20) // Red
+        case .zone1: return Color(red: 0.00, green: 0.72, blue: 0.90) // Blue (Apple Zone 1)
+        case .zone2: return Color(red: 0.00, green: 0.80, blue: 0.35) // Green (Apple Zone 2)
+        case .zone3: return Color(red: 0.85, green: 0.80, blue: 0.00) // Yellow (Apple Zone 3)
+        case .zone4: return Color(red: 1.00, green: 0.60, blue: 0.00) // Orange (Apple Zone 4)
+        case .zone5: return Color(red: 1.00, green: 0.18, blue: 0.33) // Pink/Red (Apple Zone 5)
         }
     }
 
