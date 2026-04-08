@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 
 // MARK: - History List
+
 struct SessionHistoryView: View {
     @Query(sort: \WorkoutSession.startedAt, order: .reverse) private var sessions: [WorkoutSession]
     @Environment(\.modelContext) private var modelContext
@@ -54,13 +55,13 @@ struct SessionHistoryView: View {
 }
 
 // MARK: - Session Card
+
 struct SessionCard: View {
     let session: WorkoutSession
     let onDelete: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top: name · type + delete button
             HStack(spacing: 5) {
                 Image(systemName: iconForType(session.workoutType))
                     .font(.system(size: 12))
@@ -81,7 +82,6 @@ struct SessionCard: View {
 
                 Spacer()
 
-                // Delete button (top-right)
                 Button {
                     onDelete()
                 } label: {
@@ -91,13 +91,11 @@ struct SessionCard: View {
                 }
             }
 
-            // Date
             Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
                 .font(.system(size: 12))
                 .foregroundStyle(Color.gray1)
                 .padding(.top, 4)
 
-            // Duration
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Total Time")
@@ -112,7 +110,6 @@ struct SessionCard: View {
 
                 Spacer()
 
-                // Section count
                 Text("\(session.sections.count) sections")
                     .font(.system(size: 12))
                     .foregroundStyle(Color.gray1)
@@ -142,6 +139,7 @@ struct SessionCard: View {
 }
 
 // MARK: - Session Detail View
+
 struct SessionDetailView: View {
     let session: WorkoutSession
     @Environment(\.dismiss) private var dismiss
@@ -149,7 +147,6 @@ struct SessionDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Header (matches Figma node 60:1829)
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: iconForType(session.workoutType))
                         .font(.system(size: 40))
@@ -173,10 +170,8 @@ struct SessionDetailView: View {
                 }
                 .padding(.top, 8)
 
-                // Summary stats (2 cards only)
                 summaryGrid
 
-                // Section breakdown
                 Text("Section Breakdown")
                     .font(.sectionHeader)
                     .foregroundStyle(Color.appDarkText)
@@ -185,7 +180,6 @@ struct SessionDetailView: View {
                     sectionRow(section)
                 }
 
-                // Timestamps (for future HR comparison)
                 Text("Timestamps")
                     .font(.sectionHeader)
                     .foregroundStyle(Color.appDarkText)
@@ -211,7 +205,6 @@ struct SessionDetailView: View {
         .enableSwipeBack()
     }
 
-    // MARK: - Summary Grid
     var summaryGrid: some View {
         let columns = [
             GridItem(.flexible(), spacing: 12),
@@ -223,10 +216,8 @@ struct SessionDetailView: View {
         }
     }
 
-    // MARK: - Section Row
     func sectionRow(_ section: SessionSection) -> some View {
         HStack(spacing: 12) {
-            // Phase color indicator
             RoundedRectangle(cornerRadius: 4)
                 .fill(section.phase.color)
                 .frame(width: 4, height: 44)
@@ -265,7 +256,6 @@ struct SessionDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    // MARK: - Timestamp Info
     var timestampInfo: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -286,10 +276,6 @@ struct SessionDetailView: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.appDarkText)
             }
-            Text("Timestamps are stored per-section for future Apple Fitness heart rate comparison.")
-                .font(.system(size: 10))
-                .foregroundStyle(Color.gray2)
-                .padding(.top, 4)
         }
         .padding(14)
         .background(Color.appLightGray)

@@ -8,15 +8,14 @@
 import SwiftUI
 
 // MARK: - Gradient Presets
+
 extension LinearGradient {
-    /// Purple-to-blue gradient — used on workout type labels and accent text
     static let purpleBlue = LinearGradient(
         colors: [Color.gradientBlue, Color.gradientPurple],
         startPoint: .leading,
         endPoint: .trailing
     )
 
-    /// Blue linear gradient — used on buttons and banners
     static let blueLinear = LinearGradient(
         colors: [Color.gradientBlue, Color.gradientLightBlue],
         startPoint: .leading,
@@ -24,7 +23,8 @@ extension LinearGradient {
     )
 }
 
-// MARK: - Card Shadow (from Figma: #1D1617 at 7%, offset y:10, blur:40)
+// MARK: - Card Shadow
+
 extension View {
     func cardShadow() -> some View {
         self.shadow(
@@ -36,7 +36,8 @@ extension View {
     }
 }
 
-// MARK: - Gradient Text Modifier
+// MARK: - Gradient Text
+
 struct GradientText: ViewModifier {
     var gradient: LinearGradient
 
@@ -54,13 +55,7 @@ extension View {
 }
 
 // MARK: - Font Tokens
-//
-// Your Figma uses: Nunito (ExtraBold, Regular), Inter (Bold, Medium, Regular),
-// Montserrat (Medium), and Poppins (Regular, Bold).
-//
-// For now we use system fonts with matching weights.
-// To use the actual Figma fonts, see Section 2c below.
-//
+
 extension Font {
     static let workoutTitle     = Font.system(size: 24, weight: .heavy)
     static let workoutTypeLarge = Font.system(size: 25, weight: .bold)

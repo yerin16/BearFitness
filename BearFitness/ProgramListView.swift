@@ -28,18 +28,15 @@ struct ProgramListView: View {
                 Color.white.ignoresSafeArea()
 
                 VStack(alignment: .leading, spacing: 16) {
-                    // Title
                     Text("HIIT Programs")
                         .font(.workoutTitle)
                         .foregroundStyle(Color.appDarkText)
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
 
-                    // Tab toggle (My Programs / Suggestions / History)
                     segmentedToggle
                         .padding(.horizontal, 20)
 
-                    // Tab content
                     switch selectedTab {
                     case .myPrograms:
                         myProgramsContent
@@ -55,7 +52,6 @@ struct ProgramListView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
             .overlay(alignment: .bottomTrailing) {
-                // Floating + button
                 if selectedTab == .myPrograms {
                     Button {
                         showCreateSheet = true
@@ -85,6 +81,7 @@ struct ProgramListView: View {
     }
 
     // MARK: - Segmented Toggle
+
     var segmentedToggle: some View {
         HStack(spacing: 0) {
             ForEach(ProgramTab.allCases, id: \.self) { tab in
@@ -113,11 +110,12 @@ struct ProgramListView: View {
             }
         }
         .padding(3)
-        .background(Color(red: 0.94, green: 0.94, blue: 0.94)) // #EFEFEF
+        .background(Color(red: 0.94, green: 0.94, blue: 0.94))
         .clipShape(Capsule())
     }
 
     // MARK: - My Programs Content
+
     var myProgramsContent: some View {
         Group {
             if programs.isEmpty {
@@ -155,7 +153,6 @@ struct ProgramListView: View {
         }
     }
 
-    // MARK: - Placeholder
     func placeholderContent(_ text: String) -> some View {
         VStack {
             Spacer()
@@ -172,7 +169,8 @@ struct ProgramListView: View {
     }
 }
 
-// MARK: - Program Card (matches Figma node 60:942)
+// MARK: - Program Card
+
 struct ProgramCard: View {
     let program: HIITProgram
     let onDelete: () -> Void
@@ -181,15 +179,12 @@ struct ProgramCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top row: icon + name · type ... (three dots)
             HStack(alignment: .center, spacing: 5) {
-                // Workout icon
                 Image(systemName: program.sfSymbol)
                     .font(.system(size: 12))
                     .foregroundStyle(LinearGradient.purpleBlue)
                     .frame(width: 15, height: 15)
 
-                // Name
                 Text(program.name.isEmpty ? "Untitled" : program.name)
                     .font(.system(size: 14, weight: .bold))
                     .gradientForeground()
@@ -205,7 +200,6 @@ struct ProgramCard: View {
 
                 Spacer()
 
-                // Three dots menu (top-right)
                 Menu {
                     Button {
                         onEdit()
@@ -225,7 +219,6 @@ struct ProgramCard: View {
                 }
             }
 
-            // Total Time label + duration row with play button
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Total Time")
@@ -240,7 +233,6 @@ struct ProgramCard: View {
 
                 Spacer()
 
-                // Play button (bottom-right)
                 Button {
                     onStart()
                 } label: {
