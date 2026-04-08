@@ -277,3 +277,8 @@ The app requests read access to:
    - Open your workout detail
    - Tap "Apply" and select matching session
    - Review your heart rate zone compliance
+  
+## Demo
+https://github.com/user-attachments/assets/14f85a8b-924d-4f4c-bd4a-d90b37de967d
+
+
