@@ -47,14 +47,12 @@ final class HIITProgram: Identifiable {
         self.createdAt = Date()
     }
 
-    /// Total workout duration in seconds
     var totalDurationSeconds: Int {
         let intervalBlock = (highIntensitySeconds + lowIntensitySeconds) * intervalSets
         let cycles = repeatEnabled ? numberOfCycles : 1
         return warmUpSeconds + (intervalBlock * cycles) + coolDownSeconds
     }
 
-    /// Formatted total duration as HH:MM:SS
     var formattedDuration: String {
         let total = totalDurationSeconds
         let h = total / 3600
@@ -63,13 +61,11 @@ final class HIITProgram: Identifiable {
         return String(format: "%02d:%02d:%02d", h, m, s)
     }
 
-    /// Available workout types (cardio focused for HIIT)
     static let workoutTypes = [
         "Running", "Walking", "Cycling", "Swimming",
         "Rowing", "Elliptical", "Jump Rope", "Stair Climbing", "Mixed Cardio"
     ]
 
-    /// Map string to SF Symbol
     var sfSymbol: String {
         switch workoutType {
         case "Running":         return "figure.run"

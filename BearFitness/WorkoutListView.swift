@@ -9,6 +9,7 @@ import SwiftUI
 import HealthKit
 
 // MARK: - Workout Filter
+
 enum WorkoutFilter: Hashable {
     case all
     case type(HKWorkoutActivityType)
@@ -29,6 +30,7 @@ enum WorkoutFilter: Hashable {
 }
 
 // MARK: - Date Group
+
 struct WorkoutDateGroup: Identifiable {
     let id: String
     let title: String
@@ -36,6 +38,7 @@ struct WorkoutDateGroup: Identifiable {
 }
 
 // MARK: - WorkoutListView
+
 struct WorkoutListView: View {
     @StateObject private var manager = HealthKitManager()
     @State private var workouts: [HKWorkout] = []
@@ -43,14 +46,12 @@ struct WorkoutListView: View {
     @State private var isLoading = false
     @State private var selectedFilter: WorkoutFilter = .all
 
-    /// Unique workout types present in the data
     var availableFilters: [WorkoutFilter] {
         let types = Set(workouts.map(\.workoutActivityType))
         let sorted = types.sorted { $0.name < $1.name }
         return [.all] + sorted.map { .type($0) }
     }
 
-    /// Workouts after applying the selected filter
     var filteredWorkouts: [HKWorkout] {
         switch selectedFilter {
         case .all:
@@ -60,7 +61,6 @@ struct WorkoutListView: View {
         }
     }
 
-    /// Group filtered workouts by relative date
     var groupedWorkouts: [WorkoutDateGroup] {
         let calendar = Calendar.current
         let now = Date()
@@ -121,19 +121,17 @@ struct WorkoutListView: View {
     }
 
     // MARK: - Workout List
+
     var workoutList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
-                // Title
                 Text("My Apple Fitness Workout")
                     .font(.workoutTitle)
                     .foregroundStyle(Color.appDarkText)
                     .padding(.bottom, 0)
 
-                // Filter pills
                 filterBar
 
-                // Grouped sections
                 ForEach(groupedWorkouts) { group in
                     Text(group.title)
                         .font(.system(size: 14, weight: .semibold))
@@ -150,7 +148,6 @@ struct WorkoutListView: View {
                     }
                 }
 
-                // Filter count
                 if filteredWorkouts.count != workouts.count {
                     Text("Showing \(filteredWorkouts.count) of \(workouts.count) workouts")
                         .font(.caption)
@@ -169,6 +166,7 @@ struct WorkoutListView: View {
     }
 
     // MARK: - Filter Bar
+
     var filterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -189,6 +187,7 @@ struct WorkoutListView: View {
     }
 
     // MARK: - Empty & Error States
+
     var emptyView: some View {
         VStack(spacing: 8) {
             Image(systemName: "figure.run.circle")
@@ -227,6 +226,7 @@ struct WorkoutListView: View {
     }
 
     // MARK: - Data
+
     func loadData() async {
         if workouts.isEmpty { isLoading = true }
         errorMessage = nil
@@ -246,6 +246,7 @@ struct WorkoutListView: View {
 }
 
 // MARK: - Filter Pill
+
 struct FilterPill: View {
     let label: String
     let icon: String
@@ -274,7 +275,8 @@ struct FilterPill: View {
     }
 }
 
-// MARK: - Workout Card (with subtitle stats)
+// MARK: - Workout Card
+
 struct WorkoutCard: View {
     let workout: HKWorkout
     var showPoints: Bool = false
@@ -293,7 +295,6 @@ struct WorkoutCard: View {
                     .font(.durationSmall)
                     .foregroundStyle(Color.appDarkText)
 
-                // Quick stats subtitle
                 HStack(spacing: 12) {
                     if let cal = workout.statistics(for: HKQuantityType(.activeEnergyBurned))?
                         .sumQuantity()?.doubleValue(for: .kilocalorie()) {
@@ -352,6 +353,7 @@ struct WorkoutCard: View {
 }
 
 // MARK: - SF Symbol for workout types
+
 extension HKWorkoutActivityType {
     var sfSymbol: String {
         switch self {

@@ -8,7 +8,6 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - Create Program View
 struct CreateProgramView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -38,7 +37,6 @@ struct CreateProgramView: View {
     }
 }
 
-// MARK: - Edit Program View
 struct EditProgramView: View {
     @Bindable var program: HIITProgram
     @Environment(\.dismiss) private var dismiss
@@ -70,7 +68,8 @@ struct EditProgramView: View {
     }
 }
 
-// MARK: - Form Data (shared state between Create and Edit)
+// MARK: - Form Data
+
 struct ProgramFormData {
     var name: String = ""
     var workoutType: String = "Running"
@@ -101,7 +100,6 @@ struct ProgramFormData {
         return String(format: "%02d:%02d:%02d", t / 3600, (t % 3600) / 60, t % 60)
     }
 
-    /// Initialize from an existing program (for editing)
     init() {}
 
     init(from program: HIITProgram) {
@@ -120,7 +118,6 @@ struct ProgramFormData {
         coolDownSeconds = program.coolDownSeconds % 60
     }
 
-    /// Create a new HIITProgram from form data
     func toProgram() -> HIITProgram {
         HIITProgram(
             name: name,
@@ -135,7 +132,6 @@ struct ProgramFormData {
         )
     }
 
-    /// Apply form data back to an existing program (for editing)
     func applyTo(_ program: HIITProgram) {
         program.name = name
         program.workoutType = workoutType
@@ -149,14 +145,14 @@ struct ProgramFormData {
     }
 }
 
-// MARK: - Shared Form Content (used by both Create and Edit)
+// MARK: - Shared Form Content
+
 struct ProgramFormContent: View {
     @Binding var form: ProgramFormData
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                // Program name
                 ZStack(alignment: .leading) {
                     if form.name.isEmpty {
                         Text("Type Your Program Name")
@@ -171,10 +167,8 @@ struct ProgramFormContent: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
 
-                // Workout type picker
                 workoutTypePicker
 
-                // Warm Up
                 timeRow(
                     label: "Warm Up",
                     color: Color(red: 1.0, green: 0.67, blue: 0.08),
@@ -182,10 +176,8 @@ struct ProgramFormContent: View {
                     seconds: $form.warmUpSeconds
                 )
 
-                // Interval Cycle
                 stepperRow(label: "Interval Cycle", value: $form.intervalSets, unit: "set", range: 1...20)
 
-                // High Intensity
                 timeRow(
                     label: "High Intensity",
                     color: Color(red: 1.0, green: 0.38, blue: 0.47),
@@ -193,7 +185,6 @@ struct ProgramFormContent: View {
                     seconds: $form.highIntensitySeconds
                 )
 
-                // Low Intensity
                 timeRow(
                     label: "Low Intensity",
                     color: Color(red: 0.0, green: 0.78, blue: 0.50),
@@ -201,15 +192,12 @@ struct ProgramFormContent: View {
                     seconds: $form.lowIntensitySeconds
                 )
 
-                // Repeat toggle
                 repeatRow
 
-                // Number of Cycles
                 if form.repeatEnabled {
                     stepperRow(label: "Number of Cycles", value: $form.numberOfCycles, unit: "x", range: 2...20)
                 }
 
-                // Cool Down
                 timeRow(
                     label: "Cool Down",
                     color: Color(red: 0.20, green: 0.56, blue: 0.98),
@@ -217,7 +205,6 @@ struct ProgramFormContent: View {
                     seconds: $form.coolDownSeconds
                 )
 
-                // Total duration preview
                 totalDurationPreview
             }
             .padding(.bottom, 30)
@@ -225,7 +212,8 @@ struct ProgramFormContent: View {
         .background(Color.white)
     }
 
-    // MARK: - Workout Type Picker (cardio types only)
+    // MARK: - Workout Type Picker
+
     var workoutTypePicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -253,6 +241,7 @@ struct ProgramFormContent: View {
     }
 
     // MARK: - Time Row
+
     func timeRow(
         label: String,
         color: Color,
@@ -299,6 +288,7 @@ struct ProgramFormContent: View {
     }
 
     // MARK: - Stepper Row
+
     func stepperRow(
         label: String,
         value: Binding<Int>,
@@ -347,6 +337,7 @@ struct ProgramFormContent: View {
     }
 
     // MARK: - Repeat Toggle
+
     var repeatRow: some View {
         HStack {
             Text("Repeat")
@@ -367,6 +358,7 @@ struct ProgramFormContent: View {
     }
 
     // MARK: - Total Duration Preview
+
     var totalDurationPreview: some View {
         HStack {
             Text("Total Duration")

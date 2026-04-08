@@ -10,12 +10,11 @@ import CoreLocation
 
 extension HealthKitManager {
 
-    /// Fetch route as full CLLocation objects (includes timestamp for HR matching)
+    // Returns full CLLocation objects (with timestamps) needed for HR-to-route alignment
     func fetchRouteLocations(for workout: HKWorkout) async throws -> [CLLocation] {
         let routeType = HKSeriesType.workoutRoute()
         let workoutPredicate = HKQuery.predicateForObjects(from: workout)
 
-        // Step 1: find the route sample attached to this workout
         let routeSamples: [HKWorkoutRoute] = try await withCheckedThrowingContinuation { continuation in
             let query = HKSampleQuery(
                 sampleType: routeType,
@@ -34,7 +33,6 @@ extension HealthKitManager {
 
         guard let route = routeSamples.first else { return [] }
 
-        // Step 2: stream full CLLocation objects from the route
         var allLocations: [CLLocation] = []
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in

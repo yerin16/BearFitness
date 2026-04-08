@@ -12,7 +12,6 @@ import SwiftData
 struct BearFitnessApp: App {
     var body: some Scene {
         WindowGroup {
-//            ContentView()
             MainTabView()
         }
         .modelContainer(for: [HIITProgram.self, WorkoutSession.self])

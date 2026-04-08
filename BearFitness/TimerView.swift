@@ -17,12 +17,10 @@ struct TimerView: View {
 
     var body: some View {
         ZStack {
-            // Phase-colored background
             currentBackgroundColor
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Top bar: close button
                 HStack {
                     Spacer()
                     Button {
@@ -42,17 +40,14 @@ struct TimerView: View {
 
                 Spacer()
 
-                // Circular progress + timer
                 timerRing
 
                 Spacer()
 
-                // Stats bar: Rounds / Remaining / Interval
                 statsBar
                     .padding(.horizontal, 20)
                     .padding(.bottom, 24)
 
-                // Controls: prev / play-pause / next
                 controlButtons
                     .padding(.bottom, 40)
             }
@@ -80,20 +75,18 @@ struct TimerView: View {
         .interactiveDismissDisabled()
     }
 
-    // MARK: - Background Color
     var currentBackgroundColor: Color {
         engine.currentPhase.color
     }
 
     // MARK: - Timer Ring
+
     var timerRing: some View {
         ZStack {
-            // Background ring
             Circle()
                 .stroke(.white.opacity(0.2), lineWidth: 12)
                 .frame(width: 260, height: 260)
 
-            // Progress ring
             Circle()
                 .trim(from: 0, to: engine.progress)
                 .stroke(.white, style: StrokeStyle(lineWidth: 12, lineCap: .round))
@@ -101,7 +94,6 @@ struct TimerView: View {
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 1), value: engine.progress)
 
-            // Center content
             VStack(spacing: 8) {
                 Text(engine.currentPhase.rawValue)
                     .font(.system(size: 20, weight: .bold))
@@ -112,7 +104,6 @@ struct TimerView: View {
                     .foregroundStyle(.white)
                     .monospacedDigit()
 
-                // Target heart rate
                 HStack(spacing: 4) {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 12))
@@ -125,9 +116,9 @@ struct TimerView: View {
     }
 
     // MARK: - Stats Bar
+
     var statsBar: some View {
         HStack(spacing: 0) {
-            // Rounds
             VStack(spacing: 4) {
                 Text("Rounds")
                     .font(.system(size: 14))
@@ -138,7 +129,6 @@ struct TimerView: View {
             }
             .frame(maxWidth: .infinity)
 
-            // Remaining Time
             VStack(spacing: 4) {
                 Text("Remaining Time")
                     .font(.system(size: 14))
@@ -148,7 +138,6 @@ struct TimerView: View {
             }
             .frame(maxWidth: .infinity)
 
-            // Interval
             VStack(spacing: 4) {
                 Text("Interval")
                     .font(.system(size: 14))
@@ -168,9 +157,9 @@ struct TimerView: View {
     }
 
     // MARK: - Control Buttons
+
     var controlButtons: some View {
         HStack(spacing: 40) {
-            // Previous
             Button {
                 engine.skipToPrevious()
             } label: {
@@ -182,7 +171,6 @@ struct TimerView: View {
                     .clipShape(Circle())
             }
 
-            // Play / Pause
             Button {
                 engine.togglePlayPause()
             } label: {
@@ -195,7 +183,6 @@ struct TimerView: View {
                     .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
             }
 
-            // Next
             Button {
                 engine.skipToNext()
             } label: {
@@ -210,7 +197,8 @@ struct TimerView: View {
     }
 }
 
-// MARK: - Completion View (Save or Discard)
+// MARK: - Completion View
+
 struct CompletionView: View {
     let engine: TimerEngine
     let onAction: (Bool) -> Void
@@ -218,7 +206,6 @@ struct CompletionView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Top: checkmark + title + summary (fixed)
                 VStack(spacing: 16) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 56))
@@ -229,7 +216,6 @@ struct CompletionView: View {
                         .font(.system(size: 24, weight: .heavy))
                         .foregroundStyle(Color.appDarkText)
 
-                    // Summary card
                     VStack(spacing: 12) {
                         Text(engine.programName)
                             .font(.system(size: 18, weight: .bold))
@@ -251,7 +237,6 @@ struct CompletionView: View {
                     .padding(.horizontal, 20)
                 }
 
-                // Middle: scrollable section breakdown
                 if !engine.completedSections.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Section Breakdown")
@@ -273,7 +258,6 @@ struct CompletionView: View {
 
                 Spacer(minLength: 0)
 
-                // Bottom: buttons (always visible, pinned)
                 VStack(spacing: 10) {
                     Button {
                         onAction(true)
@@ -305,14 +289,13 @@ struct CompletionView: View {
     }
 
     // MARK: - Section Card
+
     func sectionCard(_ section: SessionSection) -> some View {
         HStack(spacing: 12) {
-            // Colored left bar
             RoundedRectangle(cornerRadius: 3)
                 .fill(section.phase.color)
                 .frame(width: 4)
 
-            // Phase icon + info
             VStack(alignment: .leading, spacing: 4) {
                 Text(section.phase.rawValue)
                     .font(.system(size: 13, weight: .bold))
@@ -327,13 +310,11 @@ struct CompletionView: View {
 
             Spacer()
 
-            // Time + completion
             VStack(alignment: .trailing, spacing: 4) {
                 Text(section.formattedActualDuration)
                     .font(.system(size: 16, weight: .heavy))
                     .foregroundStyle(Color.appDarkText)
 
-                // Planned vs actual
                 let planned = section.plannedDurationSeconds
                 let actual = section.actualDurationSeconds
                 if planned > 0 {

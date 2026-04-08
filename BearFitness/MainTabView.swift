@@ -34,7 +34,6 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            // MARK: - Home (placeholder)
             NavigationStack {
                 Text("Home")
                     .font(.title2)
@@ -47,7 +46,6 @@ struct MainTabView: View {
                 Text(AppTab.home.title)
             }
 
-            // MARK: - Workout (main focus)
             WorkoutListView()
                 .tag(AppTab.workout)
                 .tabItem {
@@ -55,7 +53,6 @@ struct MainTabView: View {
                     Text(AppTab.workout.title)
                 }
 
-            // MARK: - Program
             ProgramListView()
                 .tag(AppTab.program)
                 .tabItem {
@@ -63,7 +60,6 @@ struct MainTabView: View {
                     Text(AppTab.program.title)
                 }
 
-            // MARK: - Profile (placeholder)
             NavigationStack {
                 Text("Profile")
                     .font(.title2)
@@ -76,6 +72,6 @@ struct MainTabView: View {
                 Text(AppTab.profile.title)
             }
         }
-        .tint(Color.gradientBlue) // Active tab color matches Figma gradient
+        .tint(Color.gradientBlue)
     }
 }

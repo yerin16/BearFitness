@@ -7,7 +7,8 @@
 
 import SwiftUI
 
-// MARK: - Heart Rate Zone Model
+// MARK: - Heart Rate Zone
+
 enum HeartRateZone: CaseIterable {
     case zone1, zone2, zone3, zone4, zone5
 
@@ -43,20 +44,19 @@ enum HeartRateZone: CaseIterable {
 
     var color: Color {
         switch self {
-        case .zone1: return Color(red: 0.00, green: 0.72, blue: 0.90) // Blue (Apple Zone 1)
-        case .zone2: return Color(red: 0.00, green: 0.80, blue: 0.35) // Green (Apple Zone 2)
-        case .zone3: return Color(red: 0.85, green: 0.80, blue: 0.00) // Yellow (Apple Zone 3)
-        case .zone4: return Color(red: 1.00, green: 0.60, blue: 0.00) // Orange (Apple Zone 4)
-        case .zone5: return Color(red: 1.00, green: 0.18, blue: 0.33) // Pink/Red (Apple Zone 5)
+        case .zone1: return Color(red: 0.00, green: 0.72, blue: 0.90)
+        case .zone2: return Color(red: 0.00, green: 0.80, blue: 0.35)
+        case .zone3: return Color(red: 0.85, green: 0.80, blue: 0.00)
+        case .zone4: return Color(red: 1.00, green: 0.60, blue: 0.00)
+        case .zone5: return Color(red: 1.00, green: 0.18, blue: 0.33)
         }
     }
 
-    /// Determine zone from BPM
-    /// Standard 5-zone model (% of max HR ~200 as baseline):
-    /// Z1: < 100, Z2: 100–119, Z3: 120–139, Z4: 140–159, Z5: 160+
+    // Standard 5-zone model with ~200 bpm max HR baseline:
+    // Z1 < 100, Z2 100–119, Z3 120–139, Z4 140–159, Z5 160+
     static func from(bpm: Double) -> HeartRateZone {
         switch bpm {
-        case ..<100:  return .zone1
+        case ..<100:    return .zone1
         case 100..<120: return .zone2
         case 120..<140: return .zone3
         case 140..<160: return .zone4
@@ -66,6 +66,7 @@ enum HeartRateZone: CaseIterable {
 }
 
 // MARK: - Heart Rate Zone Bar
+
 struct HeartRateZoneBar: View {
     let heartRates: [(date: Date, bpm: Double)]
 
@@ -84,7 +85,6 @@ struct HeartRateZoneBar: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.appDarkText)
 
-            // Colored bar
             GeometryReader { geo in
                 HStack(spacing: 2) {
                     ForEach(zones, id: \.zone) { item in
@@ -99,7 +99,7 @@ struct HeartRateZoneBar: View {
             }
             .frame(height: 14)
 
-            // Zone labels with explicit colors (no .secondary — fixes dark mode)
+            // Explicit colors needed here — .secondary breaks in dark mode
             VStack(spacing: 6) {
                 ForEach(zones, id: \.zone) { item in
                     if item.count > 0 {

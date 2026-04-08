@@ -9,6 +9,7 @@ import SwiftUI
 import HealthKit
 import MapKit
 import Charts
+import SwiftData
 
 struct WorkoutDetailView: View {
     let workout: HKWorkout
@@ -25,6 +26,14 @@ struct WorkoutDetailView: View {
     @State private var maxBPM: Double = 0
     @State private var minBPM: Double = 0
     @State private var chartData: [(date: Date, bpm: Double)] = []
+
+    // HIIT Analysis state
+    @Query(sort: \WorkoutSession.startedAt, order: .reverse) private var allSessions: [WorkoutSession]
+    @State private var showSessionPicker = false
+    @State private var analysisResult: HIITAnalysisResult?
+    @State private var showAnalysisResult = false
+    @State private var isAnalyzing = false
+    @State private var analysisError: String?
 
     var body: some View {
         ScrollView {
@@ -131,20 +140,59 @@ struct WorkoutDetailView: View {
                 .foregroundStyle(Color.appBlack)
             Spacer()
             Button {
-                // TODO: Navigate to program selection
+                showSessionPicker = true
             } label: {
-                Text("Apply")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(LinearGradient.blueLinear)
-                    .clipShape(Capsule())
+                if isAnalyzing {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .frame(width: 60, height: 36)
+                        .background(LinearGradient.blueLinear)
+                        .clipShape(Capsule())
+                } else {
+                    Text("Apply")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(LinearGradient.blueLinear)
+                        .clipShape(Capsule())
+                }
             }
+            .disabled(isAnalyzing)
         }
         .padding(14)
         .background(LinearGradient.blueLinear.opacity(0.2))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .sheet(isPresented: $showSessionPicker) {
+            SessionPickerSheet(
+                workout: workout,
+                sessions: allSessions,
+                isAnalyzing: $isAnalyzing
+            ) { selected in
+                showSessionPicker = false
+                Task {
+                    isAnalyzing = true
+                    do {
+                        let result = try await HIITAnalysisService().analyze(session: selected, using: manager)
+                        analysisResult = result
+                        showAnalysisResult = true
+                    } catch {
+                        analysisError = error.localizedDescription
+                    }
+                    isAnalyzing = false
+                }
+            }
+        }
+        .sheet(isPresented: $showAnalysisResult) {
+            if let result = analysisResult {
+                HIITAnalysisResultSheet(result: result)
+            }
+        }
+        .alert("Analysis Error", isPresented: .constant(analysisError != nil)) {
+            Button("OK") { analysisError = nil }
+        } message: {
+            Text(analysisError ?? "")
+        }
     }
 
     // MARK: - Avg / Max / Min Row
@@ -484,10 +532,9 @@ struct ZoneLegendDot: View {
     }
 }
 
-// MARK: - Enable native iOS swipe-back gesture
-// When navigationBarBackButtonHidden(true) is used, iOS disables the
-// interactive pop gesture (the screen-follows-your-finger swipe).
-// This modifier re-enables it via UIKit.
+// MARK: - Swipe-back support
+// navigationBarBackButtonHidden disables the interactive pop gesture, so we
+// re-enable it by reaching into the UINavigationController via UIKit.
 
 struct SwipeBackModifier: ViewModifier {
     func body(content: Content) -> some View {
@@ -515,5 +562,231 @@ struct SwipeBackHelper: UIViewControllerRepresentable {
 extension View {
     func enableSwipeBack() -> some View {
         self.modifier(SwipeBackModifier())
+    }
+}
+
+// MARK: - Session Picker Sheet
+
+struct SessionPickerSheet: View {
+    let workout: HKWorkout
+    let sessions: [WorkoutSession]
+    @Binding var isAnalyzing: Bool
+    let onSelect: (WorkoutSession) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    private static let matchWindow: TimeInterval = 2 * 60 * 60  // ±2 hours
+
+    var nearbySessions: [WorkoutSession] {
+        sessions.filter { session in
+            abs(session.startedAt.timeIntervalSince(workout.startDate)) <= Self.matchWindow
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if sessions.isEmpty {
+                    emptyState(message: "No HIIT sessions saved yet.\nComplete a program in the Timer tab first.")
+                } else if nearbySessions.isEmpty {
+                    emptyState(message: "No HIIT sessions found within 2 hours of this workout.\nAll saved sessions are shown below.")
+                } else {
+                    sessionList(nearbySessions, title: "Matching Sessions")
+                }
+            }
+            .navigationTitle("Select HIIT Session")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func sessionList(_ list: [WorkoutSession], title: String) -> some View {
+        List {
+            Section(title) {
+                ForEach(list) { session in
+                    Button {
+                        onSelect(session)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(session.programName)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Color.appDarkText)
+                            Text(session.formattedDate)
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.gray1)
+                            Text("\(session.sections.count) sections · \(session.formattedDuration)")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.gray1)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func emptyState(message: String) -> some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "clock.arrow.circlepath")
+                .font(.system(size: 48))
+                .foregroundStyle(Color.gray2)
+            Text(message)
+                .font(.system(size: 14))
+                .foregroundStyle(Color.gray1)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Spacer()
+        }
+    }
+}
+
+// MARK: - Analysis Result Sheet
+
+struct HIITAnalysisResultSheet: View {
+    let result: HIITAnalysisResult
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    scoreHeader
+                    sectionBreakdown
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 30)
+            }
+            .background(Color.white)
+            .navigationTitle("HIIT Analysis")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private var scoreHeader: some View {
+        VStack(spacing: 8) {
+            if result.hasAnyData {
+                ZStack {
+                    Circle()
+                        .stroke(Color.gray2.opacity(0.3), lineWidth: 8)
+                        .frame(width: 110, height: 110)
+                    Circle()
+                        .trim(from: 0, to: result.overallScore)
+                        .stroke(
+                            scoreColor(result.overallScore),
+                            style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 110, height: 110)
+                        .animation(.easeOut(duration: 0.6), value: result.overallScore)
+                    VStack(spacing: 2) {
+                        Text(result.overallScoreString)
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(scoreColor(result.overallScore))
+                        Text("Score")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.gray1)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 16)
+
+                Text("Sections hitting their target HR zone")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.gray1)
+                    .frame(maxWidth: .infinity)
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: "heart.slash")
+                        .font(.system(size: 44))
+                        .foregroundStyle(Color.gray2)
+                        .padding(.top, 20)
+                    Text("No heart rate data found")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.appDarkText)
+                    Text("Make sure you wore your Apple Watch\nduring the HIIT session.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.gray1)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private var sectionBreakdown: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Section Breakdown")
+                .font(.sectionHeader)
+                .foregroundStyle(Color.appDarkText)
+
+            ForEach(result.sectionResults) { sectionResult in
+                sectionRow(sectionResult)
+            }
+        }
+    }
+
+    private func sectionRow(_ sr: SectionAnalysis) -> some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(sr.section.phase.color)
+                .frame(width: 4, height: 56)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(sr.section.phase.rawValue)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.appDarkText)
+                Text("Target: \(sr.section.phase.targetBPMRange)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.gray1)
+                if sr.section.roundNumber > 0 {
+                    Text("Round \(sr.section.roundNumber) · Interval \(sr.section.intervalNumber)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.gray2)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 3) {
+                if sr.hasData {
+                    Text("\(Int(sr.avgBPM)) bpm")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.appDarkText)
+                    Text(sr.actualZone.label)
+                        .font(.system(size: 11))
+                        .foregroundStyle(sr.actualZone.color)
+                    Image(systemName: sr.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(sr.passed ? Color.green : Color.red)
+                } else {
+                    Text("No data")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.gray2)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color.appLightGray)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func scoreColor(_ score: Double) -> Color {
+        switch score {
+        case 0.8...: return .green
+        case 0.5..<0.8: return .orange
+        default: return .red
+        }
     }
 }
