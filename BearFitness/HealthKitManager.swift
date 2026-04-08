@@ -93,7 +93,6 @@ class HealthKitManager: ObservableObject {
     
     // MARK: - Fetch Route for a Workout
     func fetchRoute(for workout: HKWorkout) async throws -> [CLLocationCoordinate2D] {
-        // Step 1: find the route sample attached to this workout
         let routeType = HKSeriesType.workoutRoute()
         let workoutPredicate = HKQuery.predicateForObjects(from: workout)
 
@@ -115,7 +114,6 @@ class HealthKitManager: ObservableObject {
 
         guard let route = routeSamples.first else { return [] }
 
-        // Step 2: stream the CLLocation points out of the route
         var allCoordinates: [CLLocationCoordinate2D] = []
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -142,22 +140,55 @@ class HealthKitManager: ObservableObject {
         return allCoordinates
     }
     
+    // MARK: - Fetch Heart Rate in a Time Window
+    func fetchHeartRateInWindow(from start: Date, to end: Date) async throws -> [(date: Date, bpm: Double)] {
+        guard let hrType = HKObjectType.quantityType(forIdentifier: .heartRate) else { return [] }
+
+        let timePredicate = HKQuery.predicateForSamples(
+            withStart: start,
+            end: end,
+            options: .strictStartDate
+        )
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: hrType,
+                predicate: timePredicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort]
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                let hrSamples = (samples as? [HKQuantitySample]) ?? []
+                let parsed = hrSamples.map { sample in
+                    (
+                        date: sample.startDate,
+                        bpm: sample.quantity.doubleValue(for: HKUnit(from: "count/min"))
+                    )
+                }
+                continuation.resume(returning: parsed)
+            }
+            self.healthStore.execute(query)
+        }
+    }
+
     // MARK: - Fetch Workout Stats
     func fetchWorkoutStats(for workout: HKWorkout) async throws -> WorkoutStats {
         var stats = WorkoutStats()
 
-        // Active calories
         stats.activeCalories = workout.statistics(for: HKQuantityType(.activeEnergyBurned))?
             .sumQuantity()?.doubleValue(for: .kilocalorie())
 
-        // Total calories (active + basal)
         let basal = workout.statistics(for: HKQuantityType(.basalEnergyBurned))?
             .sumQuantity()?.doubleValue(for: .kilocalorie()) ?? 0
         if let active = stats.activeCalories {
             stats.totalCalories = active + basal
         }
 
-        // Distance — pick the right type based on workout
+        // Pick the right distance type based on activity
         let distanceType: HKQuantityTypeIdentifier
         switch workout.workoutActivityType {
         case .cycling: distanceType = .distanceCycling
@@ -169,7 +200,6 @@ class HealthKitManager: ObservableObject {
             .sumQuantity()?.doubleValue(for: .meter()) {
             stats.distanceKm = distanceMeters / 1000
 
-            // Pace (min/km) for running/walking
             if workout.workoutActivityType == .running || workout.workoutActivityType == .walking {
                 let paceSecsPerKm = workout.duration / stats.distanceKm!
                 let mins = Int(paceSecsPerKm) / 60
@@ -177,21 +207,17 @@ class HealthKitManager: ObservableObject {
                 stats.avgPacePerKm = String(format: "%d:%02d /km", mins, secs)
             }
 
-            // Speed (km/h) for cycling
             if workout.workoutActivityType == .cycling {
                 stats.avgSpeedKph = stats.distanceKm! / (workout.duration / 3600)
             }
         }
 
-        // Steps
         stats.steps = workout.statistics(for: HKQuantityType(.stepCount))?
             .sumQuantity()?.doubleValue(for: .count())
 
-        // Swimming strokes
         stats.swimmingStrokes = workout.statistics(for: HKQuantityType(.swimmingStrokeCount))?
             .sumQuantity()?.doubleValue(for: .count())
 
-        // Elevation gain (from route metadata if available)
         if let elevationMeters = workout.metadata?[HKMetadataKeyElevationAscended] as? HKQuantity {
             stats.elevationGain = elevationMeters.doubleValue(for: .meter())
         }
