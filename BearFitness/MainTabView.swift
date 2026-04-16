@@ -34,17 +34,12 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack {
-                Text("Home")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                    .navigationTitle("Home")
-            }
-            .tag(AppTab.home)
-            .tabItem {
-                Image(systemName: AppTab.home.icon)
-                Text(AppTab.home.title)
-            }
+            HomeView()
+                .tag(AppTab.home)
+                .tabItem {
+                    Image(systemName: AppTab.home.icon)
+                    Text(AppTab.home.title)
+                }
 
             WorkoutListView()
                 .tag(AppTab.workout)
