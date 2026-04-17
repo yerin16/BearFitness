@@ -25,15 +25,28 @@ struct CreateProgramView: View {
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Save") {
-                            let program = form.toProgram()
-                            modelContext.insert(program)
-                            dismiss()
+                            saveProgram()
                         }
                         .foregroundStyle(form.name.isEmpty ? Color.gray2 : .blue)
                         .disabled(form.name.isEmpty)
                     }
                 }
         }
+    }
+    
+    private func saveProgram() {
+        let program = form.toProgram()
+        modelContext.insert(program)
+        
+        // Explicitly save the context
+        do {
+            try modelContext.save()
+            print("Program saved successfully: \(program.name)")
+        } catch {
+            print("Error saving program: \(error)")
+        }
+        
+        dismiss()
     }
 }
 
