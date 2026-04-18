@@ -18,6 +18,7 @@ final class WorkoutSession: Identifiable {
     var endedAt: Date
     var totalDurationSeconds: Int
     var sections: [SessionSection]
+    var timeComplianceScore: Double  // 0–1, avg(actual/planned) across all sections
 
     init(
         programName: String,
@@ -25,7 +26,8 @@ final class WorkoutSession: Identifiable {
         startedAt: Date,
         endedAt: Date,
         totalDurationSeconds: Int,
-        sections: [SessionSection]
+        sections: [SessionSection],
+        timeComplianceScore: Double = 1.0
     ) {
         self.id = UUID()
         self.programName = programName
@@ -34,6 +36,7 @@ final class WorkoutSession: Identifiable {
         self.endedAt = endedAt
         self.totalDurationSeconds = totalDurationSeconds
         self.sections = sections
+        self.timeComplianceScore = timeComplianceScore
     }
 
     var formattedDuration: String {
@@ -46,9 +49,31 @@ final class WorkoutSession: Identifiable {
     var formattedDate: String {
         startedAt.formatted(.dateTime.month(.wide).day().year().hour().minute())
     }
+
+    // Letter grade based purely on time compliance (no HealthKit needed)
+    var timeGrade: String {
+        switch timeComplianceScore {
+        case 0.95...: return "S"
+        case 0.85..<0.95: return "A"
+        case 0.70..<0.85: return "B"
+        case 0.50..<0.70: return "C"
+        default: return "D"
+        }
+    }
+
+    var timeGradeColor: Color {
+        switch timeGrade {
+        case "S": return Color(red: 0.55, green: 0.20, blue: 0.98)
+        case "A": return .green
+        case "B": return Color(red: 0.00, green: 0.72, blue: 0.90)
+        case "C": return .orange
+        default:  return .red
+        }
+    }
 }
 
-// MARK: - Session Section (each phase of the workout)
+// MARK: - Session Section
+
 struct SessionSection: Codable, Identifiable {
     var id: UUID = UUID()
     var phase: WorkoutPhase
@@ -56,17 +81,24 @@ struct SessionSection: Codable, Identifiable {
     var actualDurationSeconds: Int
     var startTimestamp: Date
     var endTimestamp: Date
-    var roundNumber: Int       // which cycle this belongs to
-    var intervalNumber: Int    // which interval within the cycle
+    var roundNumber: Int
+    var intervalNumber: Int
 
     var formattedActualDuration: String {
         let m = actualDurationSeconds / 60
         let s = actualDurationSeconds % 60
         return String(format: "%d:%02d", m, s)
     }
+
+    // Fraction of planned time completed, capped at 1
+    var timeFraction: Double {
+        guard plannedDurationSeconds > 0 else { return 1.0 }
+        return min(Double(actualDurationSeconds) / Double(plannedDurationSeconds), 1.0)
+    }
 }
 
 // MARK: - Workout Phase
+
 enum WorkoutPhase: String, Codable, CaseIterable {
     case warmUp = "WARM UP"
     case highIntensity = "HIGH INTENSITY"
