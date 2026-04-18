@@ -575,11 +575,16 @@ struct SessionPickerSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    private static let matchWindow: TimeInterval = 2 * 60 * 60  // ±2 hours
+    // Sessions within 2 hours of the workout — shown first as best candidates
+    private var closeSessions: [WorkoutSession] {
+        sessions.filter {
+            abs($0.startedAt.timeIntervalSince(workout.startDate)) <= 2 * 60 * 60
+        }
+    }
 
-    var nearbySessions: [WorkoutSession] {
-        sessions.filter { session in
-            abs(session.startedAt.timeIntervalSince(workout.startDate)) <= Self.matchWindow
+    private var otherSessions: [WorkoutSession] {
+        sessions.filter {
+            abs($0.startedAt.timeIntervalSince(workout.startDate)) > 2 * 60 * 60
         }
     }
 
@@ -587,11 +592,9 @@ struct SessionPickerSheet: View {
         NavigationStack {
             Group {
                 if sessions.isEmpty {
-                    emptyState(message: "No HIIT sessions saved yet.\nComplete a program in the Timer tab first.")
-                } else if nearbySessions.isEmpty {
-                    emptyState(message: "No HIIT sessions found within 2 hours of this workout.\nAll saved sessions are shown below.")
+                    noSessionsEmptyState
                 } else {
-                    sessionList(nearbySessions, title: "Matching Sessions")
+                    sessionList
                 }
             }
             .navigationTitle("Select HIIT Session")
@@ -604,45 +607,111 @@ struct SessionPickerSheet: View {
         }
     }
 
-    @ViewBuilder
-    private func sessionList(_ list: [WorkoutSession], title: String) -> some View {
+    private var sessionList: some View {
         List {
-            Section(title) {
-                ForEach(list) { session in
-                    Button {
-                        onSelect(session)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(session.programName)
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Color.appDarkText)
-                            Text(session.formattedDate)
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color.gray1)
-                            Text("\(session.sections.count) sections · \(session.formattedDuration)")
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color.gray1)
-                        }
-                        .padding(.vertical, 4)
+            if !closeSessions.isEmpty {
+                Section("Close in Time") {
+                    ForEach(closeSessions) { session in
+                        sessionRow(session)
+                    }
+                }
+            }
+            if !otherSessions.isEmpty {
+                Section(closeSessions.isEmpty ? "All Sessions" : "Other Sessions") {
+                    ForEach(otherSessions) { session in
+                        sessionRow(session)
                     }
                 }
             }
         }
     }
 
-    @ViewBuilder
-    private func emptyState(message: String) -> some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 48))
-                .foregroundStyle(Color.gray2)
-            Text(message)
-                .font(.system(size: 14))
-                .foregroundStyle(Color.gray1)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Spacer()
+    private func sessionRow(_ session: WorkoutSession) -> some View {
+        Button {
+            onSelect(session)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(session.programName)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.appDarkText)
+                    Spacer()
+                    Text(session.timeGrade)
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundStyle(session.timeGradeColor)
+                }
+                Text(session.formattedDate)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.gray1)
+                Text("\(session.sections.count) sections · \(session.formattedDuration)")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.gray1)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    // Step-by-step guide shown when no HIIT sessions have been saved yet
+    private var noSessionsEmptyState: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                Spacer().frame(height: 8)
+
+                Image(systemName: "figure.highintensity.intervaltraining")
+                    .font(.system(size: 52))
+                    .foregroundStyle(Color.gray2)
+
+                VStack(spacing: 6) {
+                    Text("No HIIT Sessions Yet")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(Color.appDarkText)
+                    Text("Run a HIIT program first, then come back here to compare your heart rate against the plan.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.gray1)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
+                }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    stepRow(number: "1", title: "Go to Programs tab",
+                            detail: "Tap the Program icon in the tab bar")
+                    stepRow(number: "2", title: "Pick or create a program",
+                            detail: "Browse Suggestions or tap + to build your own")
+                    stepRow(number: "3", title: "Run it with the timer",
+                            detail: "Tap the play button on any program card")
+                    stepRow(number: "4", title: "Save when finished",
+                            detail: "Tap \"Save Workout\" on the completion screen")
+                    stepRow(number: "5", title: "Come back here and tap Apply",
+                            detail: "Your session will appear in this list")
+                }
+                .padding(16)
+                .background(Color.appLightGray)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.horizontal, 20)
+
+                Spacer()
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    private func stepRow(number: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(number)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(LinearGradient.purpleBlue)
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.appDarkText)
+                Text(detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.gray1)
+            }
         }
     }
 }

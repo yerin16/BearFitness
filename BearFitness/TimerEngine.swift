@@ -267,13 +267,22 @@ final class TimerEngine {
     // MARK: - Session
 
     func buildSession() -> WorkoutSession {
-        WorkoutSession(
+        let scoreable = completedSections.filter { $0.plannedDurationSeconds > 0 }
+        let timeScore: Double
+        if scoreable.isEmpty {
+            timeScore = 1.0
+        } else {
+            timeScore = scoreable.map(\.timeFraction).reduce(0, +) / Double(scoreable.count)
+        }
+
+        return WorkoutSession(
             programName: programName,
             workoutType: workoutType,
             startedAt: startedAt,
             endedAt: Date(),
             totalDurationSeconds: totalElapsedSeconds,
-            sections: completedSections
+            sections: completedSections,
+            timeComplianceScore: timeScore
         )
     }
 }

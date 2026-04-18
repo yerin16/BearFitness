@@ -21,31 +21,35 @@ struct CreateProgramView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Cancel") { dismiss() }
-                            .foregroundStyle(.blue)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color.gray1)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(Color.appLightGray)
+                            .clipShape(Capsule())
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Save") {
-                            saveProgram()
-                        }
-                        .foregroundStyle(form.name.isEmpty ? Color.gray2 : .blue)
-                        .disabled(form.name.isEmpty)
+                        Button("Save") { saveProgram() }
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(form.name.isEmpty ? AnyShapeStyle(Color.gray2) : AnyShapeStyle(LinearGradient.purpleBlue))
+                            .clipShape(Capsule())
+                            .disabled(form.name.isEmpty)
                     }
                 }
         }
     }
-    
+
     private func saveProgram() {
         let program = form.toProgram()
         modelContext.insert(program)
-        
-        // Explicitly save the context
         do {
             try modelContext.save()
-            print("Program saved successfully: \(program.name)")
         } catch {
             print("Error saving program: \(error)")
         }
-        
         dismiss()
     }
 }
@@ -63,14 +67,24 @@ struct EditProgramView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Cancel") { dismiss() }
-                            .foregroundStyle(.blue)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color.gray1)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(Color.appLightGray)
+                            .clipShape(Capsule())
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Save") {
                             form.applyTo(program)
                             dismiss()
                         }
-                        .foregroundStyle(form.name.isEmpty ? Color.gray2 : .blue)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(form.name.isEmpty ? AnyShapeStyle(Color.gray2) : AnyShapeStyle(LinearGradient.purpleBlue))
+                        .clipShape(Capsule())
                         .disabled(form.name.isEmpty)
                     }
                 }
@@ -278,19 +292,19 @@ struct ProgramFormContent: View {
             HStack(spacing: 4) {
                 Picker("", selection: minutes) {
                     ForEach(0..<60) { m in
-                        Text("\(m)m").tag(m)
+                        Text("\(m) m").tag(m)
                     }
                 }
                 .pickerStyle(.menu)
-                .frame(minWidth: 60)
+                .fixedSize()
 
                 Picker("", selection: seconds) {
                     ForEach(Array(stride(from: 0, to: 60, by: 5)), id: \.self) { s in
-                        Text("\(s)s").tag(s)
+                        Text("\(s) s").tag(s)
                     }
                 }
                 .pickerStyle(.menu)
-                .frame(minWidth: 60)
+                .fixedSize()
             }
         }
         .padding(.horizontal, 16)

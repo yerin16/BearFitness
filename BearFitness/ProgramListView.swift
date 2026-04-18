@@ -41,7 +41,7 @@ struct ProgramListView: View {
                     case .myPrograms:
                         myProgramsContent
                     case .suggestions:
-                        placeholderContent("Suggestions coming soon")
+                        SuggestionsView()
                     case .history:
                         SessionHistoryView()
                     }
@@ -151,17 +151,6 @@ struct ProgramListView: View {
                 }
             }
         }
-    }
-
-    func placeholderContent(_ text: String) -> some View {
-        VStack {
-            Spacer()
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(Color.gray2)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
     }
 
     func deleteProgram(_ program: HIITProgram) {
