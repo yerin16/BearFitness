@@ -317,9 +317,9 @@ struct CompletionView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
                 .padding(.top, 12)
-                .background(Color.white)
+                .background(Color(.systemBackground))
             }
-            .background(Color.white)
+            .background(Color(.systemBackground))
         }
         .interactiveDismissDisabled()
     }

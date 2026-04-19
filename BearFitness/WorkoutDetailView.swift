@@ -56,7 +56,7 @@ struct WorkoutDetailView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 30)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -153,7 +153,7 @@ struct WorkoutDetailView: View {
         HStack {
             Text("Apply your HIIT program and earn points!")
                 .font(.bannerText)
-                .foregroundStyle(Color.appBlack)
+                .foregroundStyle(Color.appDarkText)
             Spacer()
             Button {
                 showSessionPicker = true
@@ -177,8 +177,12 @@ struct WorkoutDetailView: View {
             .disabled(isAnalyzing)
         }
         .padding(14)
-        .background(LinearGradient.blueLinear.opacity(0.2))
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(LinearGradient.blueLinear.opacity(0.4), lineWidth: 1)
+        )
         .sheet(isPresented: $showSessionPicker) {
             SessionPickerSheet(
                 workout: workout,
@@ -365,7 +369,7 @@ struct WorkoutDetailView: View {
                 HRSummaryColumn(label: "Min", value: "\(Int(minBPM))", unit: "bpm", color: .blue)
             }
             .padding(.vertical, 10)
-            .background(Color.white)
+            .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .cardShadow()
         }
@@ -701,7 +705,7 @@ struct StatCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 15))
         .cardShadow()
     }
@@ -803,7 +807,7 @@ struct SessionPickerSheet: View {
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(Color.white)
+                .background(Color(.systemBackground))
 
                 Divider()
 
@@ -1116,9 +1120,9 @@ struct HIITAnalysisResultSheet: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
                 .padding(.bottom, 30)
-                .background(Color.white)
+                .background(Color(.systemBackground))
             }
-            .background(Color.white)
+            .background(Color(.systemBackground))
             .navigationTitle("HIIT Analysis")
             .navigationBarTitleDisplayMode(.inline)
         }

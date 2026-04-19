@@ -114,7 +114,7 @@ struct SessionCard: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 16)
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 15))
         .cardShadow()
     }
@@ -192,7 +192,7 @@ struct SessionDetailView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 30)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -304,7 +304,7 @@ struct SessionDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(16)
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .cardShadow()
     }

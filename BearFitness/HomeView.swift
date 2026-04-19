@@ -19,7 +19,8 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \WorkoutSession.startedAt, order: .reverse) private var sessions: [WorkoutSession]
     @Query(sort: \HIITProgram.createdAt, order: .reverse) private var programs: [HIITProgram]
-    
+    @Query private var allRecords: [WorkoutAnalysisRecord]
+
     @StateObject private var healthManager = HealthKitManager()
     
     @State private var workouts: [HKWorkout] = []
@@ -36,11 +37,51 @@ struct HomeView: View {
     
     // Program selection
     @State private var selectedProgramIndex: Int = 0
+    @State private var showLevelSheet = false
+
+    // MARK: - Score & Streak computed values
+
+    var totalAllTimePoints: Int { allRecords.reduce(0) { $0 + $1.totalPoints } }
+
+    var weeklyPoints: Int {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        return allRecords.filter { $0.analyzedAt >= cutoff }.reduce(0) { $0 + $1.totalPoints }
+    }
+
+    var currentStreak: Int { calculateStreak() }
+
+    var pointsLevel: (name: String, color: Color, nextThreshold: Int) {
+        switch totalAllTimePoints {
+        case 0..<100:   return ("Rookie",    Color.gray1,                          100)
+        case 100..<300: return ("Athlete",   Color.gradientBlue,                   300)
+        case 300..<600: return ("Champion",  Color(red: 0.0,  green: 0.78, blue: 0.50), 600)
+        case 600..<1000:return ("Master",    Color(red: 1.0,  green: 0.67, blue: 0.08), 1000)
+        default:        return ("Elite",     Color(red: 0.55, green: 0.20, blue: 0.98), totalAllTimePoints)
+        }
+    }
+
+    var levelProgress: Double {
+        let level = pointsLevel
+        let prev = previousThreshold
+        let range = level.nextThreshold - prev
+        guard range > 0 else { return 1.0 }
+        return min(Double(totalAllTimePoints - prev) / Double(range), 1.0)
+    }
+
+    private var previousThreshold: Int {
+        switch totalAllTimePoints {
+        case 0..<100:    return 0
+        case 100..<300:  return 100
+        case 300..<600:  return 300
+        case 600..<1000: return 600
+        default:         return 1000
+        }
+    }
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.white.ignoresSafeArea()
+                Color(.systemBackground).ignoresSafeArea()
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
@@ -50,6 +91,10 @@ struct HomeView: View {
                             .padding(.horizontal, 20)
                             .padding(.top, 8)
                         
+                        // Score & Streak hero card
+                        scoreStreakCard
+                            .padding(.horizontal, 20)
+
                         // This Week Performance
                         weekPerformanceCard
                             .padding(.horizontal, 20)
@@ -79,6 +124,7 @@ struct HomeView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .fullScreenCover(item: $programToStart) { program in
                 TimerView(program: program)
             }
@@ -124,6 +170,10 @@ struct HomeView: View {
         }
         .task {
             await loadWorkouts()
+        }
+        .onAppear {
+            // Silently re-fetch whenever the tab becomes visible so stale / empty state never lingers.
+            Task { await loadWorkouts() }
         }
     }
     
@@ -171,7 +221,124 @@ struct HomeView: View {
         }
     }
     
-    // Week Performance Card
+    // MARK: - Score & Streak Card
+
+    var scoreStreakCard: some View {
+        HStack(spacing: 0) {
+            // Total Points column
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "star.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color(red: 0.55, green: 0.20, blue: 0.98))
+                    Text("Total Points")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.gray1)
+                }
+
+                Text("\(totalAllTimePoints)")
+                    .font(.system(size: 36, weight: .heavy))
+                    .foregroundStyle(LinearGradient.purpleBlue)
+
+                // Level badge — tap to see all levels
+                Button { showLevelSheet = true } label: {
+                    HStack(spacing: 4) {
+                        Text(pointsLevel.name)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(pointsLevel.color)
+                    .clipShape(Capsule())
+                }
+                .sheet(isPresented: $showLevelSheet) {
+                    LevelProgressSheet(totalPoints: totalAllTimePoints)
+                        .presentationDetents([.medium, .large])
+                }
+
+                // Progress to next level
+                if totalAllTimePoints < 1000 {
+                    VStack(alignment: .leading, spacing: 3) {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(Color.gray2.opacity(0.2))
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(pointsLevel.color)
+                                    .frame(width: geo.size.width * levelProgress)
+                                    .animation(.easeOut(duration: 0.6), value: levelProgress)
+                            }
+                        }
+                        .frame(height: 6)
+
+                        Text("\(pointsLevel.nextThreshold - totalAllTimePoints) pts to next level")
+                            .font(.system(size: 9))
+                            .foregroundStyle(Color.gray1)
+                    }
+                } else {
+                    Text("Max level reached!")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.55, green: 0.20, blue: 0.98))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Divider().frame(height: 100).padding(.horizontal, 16)
+
+            // Streak column
+            VStack(alignment: .center, spacing: 8) {
+                Text("Streak")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.gray1)
+
+                ZStack {
+                    Circle()
+                        .fill(currentStreak > 0
+                              ? Color.orange.opacity(0.12)
+                              : Color.gray2.opacity(0.1))
+                        .frame(width: 72, height: 72)
+                    VStack(spacing: 0) {
+                        Text(currentStreak > 0 ? "🔥" : "—")
+                            .font(.system(size: currentStreak > 0 ? 22 : 18))
+                        Text("\(currentStreak)")
+                            .font(.system(size: 20, weight: .heavy))
+                            .foregroundStyle(currentStreak > 0 ? .orange : Color.gray2)
+                    }
+                }
+
+                Text(currentStreak == 1 ? "day" : "days")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.gray1)
+
+                // Weekly points chip
+                HStack(spacing: 3) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 9))
+                    Text("+\(weeklyPoints) this week")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundStyle(Color.gradientBlue)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.gradientBlue.opacity(0.1))
+                .clipShape(Capsule())
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(20)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(LinearGradient.purpleBlue.opacity(0.15), lineWidth: 1)
+        )
+        .shadow(color: Color(red: 0.55, green: 0.20, blue: 0.98).opacity(0.08), radius: 12, y: 4)
+    }
+
+    // MARK: - Week Performance Card
     
     var weekPerformanceCard: some View {
         let weekSessions = sessionsThisWeek
@@ -236,40 +403,30 @@ struct HomeView: View {
             Divider()
             
             
-            // Stats grid
-            VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    StatBadge(
-                        icon: "flame.fill",
-                        label: "Sessions",
-                        value: "\(weekSessions.count)",
-                        color: .orange
-                    )
-                    
-                    StatBadge(
-                        icon: "clock.fill",
-                        label: "Duration",
-                        value: formatShortDuration(totalDuration),
-                        color: .blue
-                    )
-                }
-                
-                HStack(spacing: 12) {
-                    
-                    
-                    StatBadge(
-                        icon: "chart.line.uptrend.xyaxis",
-                        label: "Streak",
-                        value: "\(calculateStreak()) days",
-                        color: .green
-                    )
-                }
+            // Stats strip
+            HStack(spacing: 0) {
+                weekStat(icon: "flame.fill",
+                         label: "Sessions",
+                         value: "\(weekSessions.count)",
+                         color: .orange)
+                Divider().frame(height: 40)
+                weekStat(icon: "clock.fill",
+                         label: "Duration",
+                         value: formatShortDuration(totalDuration),
+                         color: .blue)
+                Divider().frame(height: 40)
+                weekStat(icon: "star.fill",
+                         label: "Points",
+                         value: "+\(weeklyPoints)",
+                         color: Color(red: 0.55, green: 0.20, blue: 0.98))
             }
+            .background(Color.appLightGray)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .padding(20)
         .background(
             LinearGradient(
-                colors: [Color.white, Color.purple.opacity(0.03)],
+                colors: [Color(.systemBackground), Color.purple.opacity(0.03)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -282,6 +439,25 @@ struct HomeView: View {
         .shadow(color: Color.gradientBlue.opacity(0.1), radius: 10, y: 5)
     }
     
+    private func weekStat(icon: String, label: String, value: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundStyle(color)
+            Text(value)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(Color.appDarkText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(Color.gray1)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+
     //Validation Status - Simplified
     
     @ViewBuilder
@@ -333,7 +509,7 @@ struct HomeView: View {
                                 .clipShape(Capsule())
                         }
                         .padding(12)
-                        .background(Color.white)
+                        .background(Color(.secondarySystemBackground))
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
@@ -539,7 +715,7 @@ struct HomeView: View {
                 .padding(.top, 4)
             }
             .padding(16)
-            .background(Color.white)
+            .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 15))
             .cardShadow()
         } else {
@@ -569,7 +745,7 @@ struct HomeView: View {
                 }
             }
             .padding(16)
-            .background(Color.white)
+            .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 15))
             .cardShadow()
         }
@@ -698,10 +874,12 @@ struct HomeView: View {
         }
     }
     
+    @MainActor
     func loadWorkouts() async {
-        isLoading = true
+        // Only block the UI with a spinner on the very first load.
+        if workouts.isEmpty { isLoading = true }
         defer { isLoading = false }
-        
+
         do {
             try await healthManager.requestAuthorization()
             workouts = try await healthManager.fetchWorkouts()
@@ -741,7 +919,7 @@ struct StatBadge: View {
             Spacer()
         }
         .padding(10)
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
@@ -795,6 +973,179 @@ struct PhaseRow: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color.gray1)
         }
+    }
+}
+
+// MARK: - Level Progress Sheet
+
+struct LevelProgressSheet: View {
+    let totalPoints: Int
+    @Environment(\.dismiss) private var dismiss
+
+    struct Level: Identifiable {
+        let id = UUID()
+        let name: String
+        let icon: String
+        let threshold: Int
+        let color: Color
+        let description: String
+    }
+
+    let levels: [Level] = [
+        Level(name: "Rookie",   icon: "🌱", threshold: 0,    color: Color.gray1,
+              description: "Just getting started — every rep counts."),
+        Level(name: "Athlete",  icon: "⚡️", threshold: 100,  color: Color.gradientBlue,
+              description: "You've built a real habit. Keep pushing."),
+        Level(name: "Champion", icon: "🏅", threshold: 300,  color: Color(red: 0.0, green: 0.78, blue: 0.50),
+              description: "Consistent effort and solid heart-rate control."),
+        Level(name: "Master",   icon: "🔥", threshold: 600,  color: Color(red: 1.0, green: 0.67, blue: 0.08),
+              description: "Your zone matching is elite. Dominating intervals."),
+        Level(name: "Elite",    icon: "👑", threshold: 1000, color: Color(red: 0.55, green: 0.20, blue: 0.98),
+              description: "The highest rank. Total HR and time precision."),
+    ]
+
+    private func isUnlocked(_ level: Level) -> Bool { totalPoints >= level.threshold }
+
+    private func isCurrent(_ level: Level, index: Int) -> Bool {
+        let next = index + 1 < levels.count ? levels[index + 1].threshold : Int.max
+        return totalPoints >= level.threshold && totalPoints < next
+    }
+
+    private func progress(for level: Level, index: Int) -> Double {
+        guard isCurrent(level, index: index) else { return isUnlocked(level) ? 1.0 : 0.0 }
+        let next = index + 1 < levels.count ? levels[index + 1].threshold : level.threshold + 1
+        let range = next - level.threshold
+        guard range > 0 else { return 1.0 }
+        return min(Double(totalPoints - level.threshold) / Double(range), 1.0)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    VStack(spacing: 4) {
+                        Text("\(totalPoints)")
+                            .font(.system(size: 48, weight: .heavy))
+                            .foregroundStyle(LinearGradient.purpleBlue)
+                        Text("total points")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.gray1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
+
+                    Divider()
+
+                    ForEach(Array(levels.enumerated()), id: \.element.id) { index, level in
+                        levelRow(level: level, index: index)
+                    }
+
+                    Text("Earn points by matching your heart-rate zone, completing sections on time, and maintaining streaks.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.gray1)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                }
+                .padding(.horizontal, 20)
+            }
+            .background(Color(.systemBackground))
+            .navigationTitle("Levels")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func levelRow(level: Level, index: Int) -> some View {
+        let unlocked = isUnlocked(level)
+        let current  = isCurrent(level, index: index)
+        let prog     = progress(for: level, index: index)
+        let nextThreshold = index + 1 < levels.count ? levels[index + 1].threshold : nil
+
+        return HStack(alignment: .top, spacing: 14) {
+            Text(level.icon)
+                .font(.system(size: 22))
+                .frame(width: 44, height: 44)
+                .background(unlocked ? level.color.opacity(0.15) : Color.appLightGray)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(current ? level.color : Color.clear, lineWidth: 2))
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(level.name)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(unlocked ? level.color : Color.gray2)
+
+                    if current {
+                        Text("YOU ARE HERE")
+                            .font(.system(size: 9, weight: .heavy))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(level.color)
+                            .clipShape(Capsule())
+                    }
+
+                    Spacer()
+
+                    if unlocked {
+                        Image(systemName: current ? "star.fill" : "checkmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(current ? level.color : Color.green)
+                    } else {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.gray2)
+                    }
+                }
+
+                Text(level.description)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.gray1)
+
+                if let next = nextThreshold {
+                    Text("\(level.threshold) – \(next - 1) pts")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(unlocked ? level.color : Color.gray2)
+                } else {
+                    Text("\(level.threshold)+ pts")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(unlocked ? level.color : Color.gray2)
+                }
+
+                if current {
+                    VStack(alignment: .leading, spacing: 3) {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 3).fill(level.color.opacity(0.15))
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(level.color)
+                                    .frame(width: geo.size.width * prog)
+                                    .animation(.easeOut(duration: 0.6), value: prog)
+                            }
+                        }
+                        .frame(height: 6)
+
+                        if let next = nextThreshold {
+                            Text("\(next - totalPoints) more pts to \(levels[index + 1].name)")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.gray1)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(current ? level.color.opacity(0.05) : Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(current ? level.color.opacity(0.3) : Color.appLightGray, lineWidth: 1)
+        )
     }
 }
 

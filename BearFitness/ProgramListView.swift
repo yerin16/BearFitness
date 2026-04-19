@@ -25,7 +25,7 @@ struct ProgramListView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.white.ignoresSafeArea()
+                Color(.systemBackground).ignoresSafeArea()
 
                 VStack(alignment: .leading, spacing: 16) {
                     Text("HIIT Programs")
@@ -51,6 +51,7 @@ struct ProgramListView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .overlay(alignment: .bottomTrailing) {
                 if selectedTab == .myPrograms {
                     Button {
@@ -83,7 +84,7 @@ struct ProgramListView: View {
     // MARK: - Segmented Toggle
 
     var segmentedToggle: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 8) {
             ForEach(ProgramTab.allCases, id: \.self) { tab in
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -91,27 +92,20 @@ struct ProgramListView: View {
                     }
                 } label: {
                     Text(tab.rawValue)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.appBlack)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .font(.system(size: 13, weight: .medium))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
                         .background(
                             selectedTab == tab
-                            ? Color.white
-                            : Color.clear
+                            ? AnyShapeStyle(LinearGradient.purpleBlue)
+                            : AnyShapeStyle(Color.appLightGray)
                         )
+                        .foregroundStyle(selectedTab == tab ? .white : Color.gray1)
                         .clipShape(Capsule())
-                        .shadow(
-                            color: selectedTab == tab ? Color.black.opacity(0.08) : .clear,
-                            radius: 4, y: 2
-                        )
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(3)
-        .background(Color(red: 0.94, green: 0.94, blue: 0.94))
-        .clipShape(Capsule())
     }
 
     // MARK: - My Programs Content
@@ -233,7 +227,7 @@ struct ProgramCard: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 18)
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 15))
         .cardShadow()
     }
