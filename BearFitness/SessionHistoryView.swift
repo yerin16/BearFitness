@@ -549,49 +549,59 @@ struct SessionDetailView: View {
     }
 
     private func pointsBreakdownBar(_ result: HIITAnalysisResult) -> some View {
-        let base = result.sectionResults.filter(\.hasData).reduce(0) { acc, sr in
-            acc + (sr.passed ? 10 : sr.isClose ? 5 : 0)
-        }
-        let streak = max(0, result.totalPoints - base - (result.session.timeComplianceScore >= 0.95 ? 20 : 0))
-        let completion = result.session.timeComplianceScore >= 0.95 ? 20 : 0
-        let total = max(result.maxPossiblePoints, 1)
-
-        return VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("\(result.totalPoints) / \(result.maxPossiblePoints) pts")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.appDarkText)
 
+            // Three-component stacked bars (zone 50%, duration 30%, transition 20%)
+            VStack(spacing: 4) {
+                scoreComponentRow(
+                    label: "Zone Match",
+                    weight: "50%",
+                    value: result.avgZoneMatchScore,
+                    color: scoreColor(result.avgZoneMatchScore)
+                )
+                scoreComponentRow(
+                    label: "Duration",
+                    weight: "30%",
+                    value: result.avgDurationMatchScore,
+                    color: Color.gradientBlue
+                )
+                scoreComponentRow(
+                    label: "Transition",
+                    weight: "20%",
+                    value: result.avgTransitionScore,
+                    color: Color(red: 0.55, green: 0.20, blue: 0.98)
+                )
+            }
+        }
+    }
+
+    private func scoreComponentRow(label: String, weight: String, value: Double, color: Color) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(Color.gray1)
+                .frame(width: 62, alignment: .leading)
+            Text(weight)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(Color.gray2)
+                .frame(width: 26)
             GeometryReader { geo in
-                HStack(spacing: 2) {
-                    if base > 0 {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(scoreColor(result.overallScore))
-                            .frame(width: geo.size.width * CGFloat(base) / CGFloat(total))
-                    }
-                    if streak > 0 {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color(red: 0.55, green: 0.20, blue: 0.98))
-                            .frame(width: geo.size.width * CGFloat(streak) / CGFloat(total))
-                    }
-                    if completion > 0 {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.gradientBlue)
-                            .frame(width: geo.size.width * CGFloat(completion) / CGFloat(total))
-                    }
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3).fill(color.opacity(0.12))
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.gray2.opacity(0.25))
+                        .fill(color)
+                        .frame(width: geo.size.width * value)
+                        .animation(.easeOut(duration: 0.6), value: value)
                 }
             }
-            .frame(height: 8)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-
-            HStack(spacing: 12) {
-                legendDot(color: scoreColor(result.overallScore), label: "Zone hits")
-                legendDot(color: Color(red: 0.55, green: 0.20, blue: 0.98), label: "Streak")
-                legendDot(color: Color.gradientBlue, label: "Completion")
-            }
-            .font(.system(size: 10))
-            .foregroundStyle(Color.gray1)
+            .frame(height: 6)
+            Text(String(format: "%.0f%%", value * 100))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 30, alignment: .trailing)
         }
     }
 
@@ -660,17 +670,19 @@ struct SessionDetailView: View {
                     Spacer()
 
                     if sr.hasData {
-                        VStack(alignment: .trailing, spacing: 3) {
+                        VStack(alignment: .trailing, spacing: 4) {
                             Text("\(Int(sr.avgBPM)) bpm")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(size: 13, weight: .bold))
                                 .foregroundStyle(Color.appDarkText)
-                            Text(sr.actualZone.label)
-                                .font(.system(size: 10))
-                                .foregroundStyle(sr.actualZone.color)
-                            Image(systemName: sr.passed ? "checkmark.circle.fill"
-                                  : sr.isClose ? "minus.circle.fill" : "xmark.circle.fill")
-                                .font(.system(size: 14))
-                                .foregroundStyle(sr.passed ? Color.green : sr.isClose ? Color.orange : Color.red)
+                            // Mini score chips
+                            HStack(spacing: 4) {
+                                scoreChip(value: sr.zoneMatchScore, label: "Z")
+                                scoreChip(value: sr.durationMatchScore, label: "D")
+                                scoreChip(value: sr.transitionScore, label: "T")
+                            }
+                            Text(String(format: "%.0f%%", sr.intervalScore * 100))
+                                .font(.system(size: 11, weight: .heavy))
+                                .foregroundStyle(scoreColor(sr.intervalScore))
                         }
                     } else {
                         Text("No data")
@@ -716,6 +728,17 @@ struct SessionDetailView: View {
     }
 
     // MARK: - Helpers
+
+    private func scoreChip(value: Double, label: String) -> some View {
+        let color: Color = value >= 0.8 ? .green : value >= 0.5 ? .orange : Color.gray2
+        return Text(label)
+            .font(.system(size: 8, weight: .bold))
+            .foregroundStyle(color)
+            .frame(width: 16, height: 16)
+            .background(color.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 3))
+            .help("\(label == "Z" ? "Zone" : label == "D" ? "Duration" : "Transition"): \(Int(value * 100))%")
+    }
 
     private func scoreColor(_ score: Double) -> Color {
         switch score {

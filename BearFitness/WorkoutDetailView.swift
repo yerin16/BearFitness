@@ -28,12 +28,18 @@ struct WorkoutDetailView: View {
     @State private var chartData: [(date: Date, bpm: Double)] = []
 
     // HIIT Analysis state
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \WorkoutSession.startedAt, order: .reverse) private var allSessions: [WorkoutSession]
+    @Query private var allRecords: [WorkoutAnalysisRecord]
     @State private var showSessionPicker = false
     @State private var analysisResult: HIITAnalysisResult?
     @State private var showAnalysisResult = false
     @State private var isAnalyzing = false
     @State private var analysisError: String?
+
+    private var existingRecord: WorkoutAnalysisRecord? {
+        allRecords.first { $0.workoutUUID == workout.uuid.uuidString }
+    }
 
     var body: some View {
         ScrollView {
@@ -133,7 +139,17 @@ struct WorkoutDetailView: View {
     }
 
     // MARK: - Apply Program Banner
+
+    @ViewBuilder
     var applyProgramBanner: some View {
+        if let record = existingRecord {
+            matchedResultCard(record)
+        } else {
+            applyButton
+        }
+    }
+
+    private var applyButton: some View {
         HStack {
             Text("Apply your HIIT program and earn points!")
                 .font(.bannerText)
@@ -185,7 +201,11 @@ struct WorkoutDetailView: View {
         }
         .sheet(isPresented: $showAnalysisResult) {
             if let result = analysisResult {
-                HIITAnalysisResultSheet(result: result)
+                HIITAnalysisResultSheet(
+                    result: result,
+                    onSave: { saveAnalysisRecord(result) },
+                    onDiscard: { analysisResult = nil }
+                )
             }
         }
         .alert("Analysis Error", isPresented: .constant(analysisError != nil)) {
@@ -193,6 +213,144 @@ struct WorkoutDetailView: View {
         } message: {
             Text(analysisError ?? "")
         }
+    }
+
+    private func saveAnalysisRecord(_ result: HIITAnalysisResult) {
+        if let old = existingRecord { modelContext.delete(old) }
+
+        let overlays = result.sectionResults.map { sr in
+            SectionOverlayData(
+                phaseRawValue: sr.section.phase.rawValue,
+                startDate: sr.section.startTimestamp,
+                endDate: sr.section.endTimestamp,
+                targetLow: sr.section.phase.targetBPMLow,
+                targetHigh: sr.section.phase.targetBPMHigh
+            )
+        }
+
+        let record = WorkoutAnalysisRecord(
+            workoutUUID: workout.uuid.uuidString,
+            matchedSessionName: result.session.programName,
+            matchedSessionDate: result.session.startedAt,
+            matchRate: result.overallScore,
+            totalPoints: result.totalPoints,
+            maxPoints: result.maxPossiblePoints,
+            hrGrade: result.grade,
+            timeGrade: result.session.timeGrade,
+            timeCompliance: result.session.timeComplianceScore,
+            sectionsData: try? JSONEncoder().encode(overlays)
+        )
+        modelContext.insert(record)
+        analysisResult = nil
+    }
+
+    private func matchedResultCard(_ record: WorkoutAnalysisRecord) -> some View {
+        VStack(spacing: 12) {
+            // Header row
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.gradientBlue)
+                Text("Matched HIIT Program")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.appDarkText)
+                Spacer()
+                Button {
+                    if let old = existingRecord { modelContext.delete(old) }
+                    showSessionPicker = true
+                } label: {
+                    Text("Re-analyze")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.gradientBlue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.gradientBlue.opacity(0.1))
+                        .clipShape(Capsule())
+                }
+            }
+
+            // Session info
+            HStack(spacing: 6) {
+                Image(systemName: "figure.highintensity.intervaltraining")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.gray1)
+                Text(record.matchedSessionName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.appDarkText)
+                Text("·")
+                    .foregroundStyle(Color.gray2)
+                Text(record.matchedSessionDate.formatted(date: .abbreviated, time: .shortened))
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.gray1)
+                Spacer()
+            }
+
+            Divider()
+
+            // Score stats row
+            HStack(spacing: 0) {
+                scoreStatColumn(label: "HR Match", value: record.matchRateString, color: record.hrGradeColor)
+                Divider().frame(height: 36)
+                scoreStatColumn(label: "HR Grade", value: record.hrGrade, color: record.hrGradeColor)
+                Divider().frame(height: 36)
+                scoreStatColumn(label: "Points", value: "+\(record.totalPoints)", color: .gradientBlue)
+                Divider().frame(height: 36)
+                scoreStatColumn(label: "Time", value: record.timeGrade, color: record.timeGradeColor)
+            }
+        }
+        .padding(14)
+        .background(Color.gradientBlue.opacity(0.07))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gradientBlue.opacity(0.25), lineWidth: 1)
+        )
+        .sheet(isPresented: $showSessionPicker) {
+            SessionPickerSheet(
+                workout: workout,
+                sessions: allSessions,
+                isAnalyzing: $isAnalyzing
+            ) { selected in
+                showSessionPicker = false
+                Task {
+                    isAnalyzing = true
+                    do {
+                        let result = try await HIITAnalysisService().analyze(session: selected, using: manager)
+                        analysisResult = result
+                        showAnalysisResult = true
+                    } catch {
+                        analysisError = error.localizedDescription
+                    }
+                    isAnalyzing = false
+                }
+            }
+        }
+        .sheet(isPresented: $showAnalysisResult) {
+            if let result = analysisResult {
+                HIITAnalysisResultSheet(
+                    result: result,
+                    onSave: { saveAnalysisRecord(result) },
+                    onDiscard: { analysisResult = nil }
+                )
+            }
+        }
+        .alert("Analysis Error", isPresented: .constant(analysisError != nil)) {
+            Button("OK") { analysisError = nil }
+        } message: {
+            Text(analysisError ?? "")
+        }
+    }
+
+    private func scoreStatColumn(label: String, value: String, color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 17, weight: .heavy))
+                .foregroundStyle(color)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(Color.gray1)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Avg / Max / Min Row
@@ -225,60 +383,117 @@ struct WorkoutDetailView: View {
                 .foregroundStyle(Color.gray2)
                 .frame(maxWidth: .infinity, minHeight: 200)
         } else {
-            Chart {
-                ForEach(chartData, id: \.date) { entry in
-                    AreaMark(
-                        x: .value("Time", entry.date),
-                        yStart: .value("Min", minBPM - 10),
-                        yEnd: .value("BPM", entry.bpm)
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [
-                                Color.gradientBlue.opacity(0.3),
-                                Color.gradientBlue.opacity(0.05)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
+            let overlays = existingRecord?.sectionOverlays ?? []
+            let yMin = minBPM - 10
+            let yMax = maxBPM + 10
+
+            VStack(alignment: .leading, spacing: 8) {
+                Chart {
+                    // ── Section target-zone bands (rendered first = lowest layer) ──
+                    ForEach(overlays) { overlay in
+                        // Colored band for the target BPM zone
+                        RectangleMark(
+                            xStart: .value("Start", overlay.startDate),
+                            xEnd:   .value("End",   overlay.endDate),
+                            yStart: .value("Low",   overlay.targetLow),
+                            yEnd:   .value("High",  overlay.targetHigh)
                         )
-                    )
-                    .interpolationMethod(.catmullRom)
+                        .foregroundStyle(
+                            (overlay.phase?.color ?? Color.gray).opacity(0.13)
+                        )
 
-                    LineMark(
-                        x: .value("Time", entry.date),
-                        y: .value("BPM", entry.bpm)
-                    )
-                    .foregroundStyle(LinearGradient.purpleBlue)
-                    .interpolationMethod(.catmullRom)
-                    .lineStyle(StrokeStyle(lineWidth: 2))
-                }
+                        // Vertical divider at the section boundary
+                        RuleMark(x: .value("Section", overlay.startDate))
+                            .foregroundStyle(
+                                (overlay.phase?.color ?? Color.gray).opacity(0.45)
+                            )
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3]))
+                            .annotation(position: .top, alignment: .leading, spacing: 2) {
+                                Text(overlay.phase?.shortLabel ?? "")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(overlay.phase?.color ?? Color.gray)
+                            }
+                    }
 
-                RuleMark(y: .value("Avg", avgBPM))
-                    .foregroundStyle(.orange.opacity(0.5))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
-            }
-            .frame(height: 200)
-            .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                    AxisGridLine()
-                        .foregroundStyle(Color.gray2.opacity(0.3))
-                    AxisValueLabel(format: .dateTime.hour().minute())
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color.gray1)
+                    // ── Actual HR area + line ──
+                    ForEach(chartData, id: \.date) { entry in
+                        AreaMark(
+                            x: .value("Time", entry.date),
+                            yStart: .value("Min", yMin),
+                            yEnd:   .value("BPM", entry.bpm)
+                        )
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.gradientBlue.opacity(0.28), Color.gradientBlue.opacity(0.04)],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
+                        .interpolationMethod(.catmullRom)
+
+                        LineMark(
+                            x: .value("Time", entry.date),
+                            y: .value("BPM",  entry.bpm)
+                        )
+                        .foregroundStyle(LinearGradient.purpleBlue)
+                        .interpolationMethod(.catmullRom)
+                        .lineStyle(StrokeStyle(lineWidth: 2))
+                    }
+
+                    // Average HR reference line
+                    RuleMark(y: .value("Avg", avgBPM))
+                        .foregroundStyle(.orange.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
                 }
-            }
-            .chartYAxis {
-                AxisMarks(position: .trailing) { value in
-                    AxisGridLine()
-                        .foregroundStyle(Color.gray2.opacity(0.3))
-                    AxisValueLabel {
-                        Text("\(value.as(Int.self) ?? 0)")
+                .frame(height: 210)
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine().foregroundStyle(Color.gray2.opacity(0.3))
+                        AxisValueLabel(format: .dateTime.hour().minute())
                             .font(.system(size: 10))
                             .foregroundStyle(Color.gray1)
                     }
                 }
+                .chartYAxis {
+                    AxisMarks(position: .trailing) { value in
+                        AxisGridLine().foregroundStyle(Color.gray2.opacity(0.3))
+                        AxisValueLabel {
+                            Text("\(value.as(Int.self) ?? 0)")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.gray1)
+                        }
+                    }
+                }
+                .chartYScale(domain: yMin...yMax)
+
+                // Phase legend shown only when overlay data is available
+                if !overlays.isEmpty {
+                    let uniquePhases = overlays.compactMap(\.phase)
+                        .reduce(into: [WorkoutPhase]()) { acc, p in
+                            if !acc.contains(p) { acc.append(p) }
+                        }
+                    HStack(spacing: 12) {
+                        ForEach(uniquePhases, id: \.rawValue) { phase in
+                            HStack(spacing: 4) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(phase.color.opacity(0.4))
+                                    .frame(width: 12, height: 8)
+                                Text("\(phase.shortLabel) \(phase.targetBPMRange)")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(phase.color)
+                            }
+                        }
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Rectangle()
+                                .fill(Color.orange.opacity(0.5))
+                                .frame(width: 12, height: 1)
+                            Text("Avg")
+                                .font(.system(size: 9))
+                                .foregroundStyle(Color.gray1)
+                        }
+                    }
+                }
             }
-            .chartYScale(domain: (minBPM - 10)...(maxBPM + 10))
         }
     }
 
@@ -574,30 +789,41 @@ struct SessionPickerSheet: View {
     let onSelect: (WorkoutSession) -> Void
 
     @Environment(\.dismiss) private var dismiss
-
-    // Sessions within 2 hours of the workout — shown first as best candidates
-    private var closeSessions: [WorkoutSession] {
-        sessions.filter {
-            abs($0.startedAt.timeIntervalSince(workout.startDate)) <= 2 * 60 * 60
-        }
-    }
-
-    private var otherSessions: [WorkoutSession] {
-        sessions.filter {
-            abs($0.startedAt.timeIntervalSince(workout.startDate)) > 2 * 60 * 60
-        }
-    }
+    @Query(sort: \HIITProgram.createdAt, order: .reverse) private var programs: [HIITProgram]
+    @State private var selectedTab = 0   // 0 = My Programs, 1 = Session History
 
     var body: some View {
         NavigationStack {
-            Group {
-                if sessions.isEmpty {
-                    noSessionsEmptyState
-                } else {
-                    sessionList
+            VStack(spacing: 0) {
+                // Segmented toggle
+                Picker("Source", selection: $selectedTab) {
+                    Text("My Programs").tag(0)
+                    Text("Session History").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.white)
+
+                Divider()
+
+                Group {
+                    if selectedTab == 0 {
+                        if programs.isEmpty {
+                            noProgramsEmptyState
+                        } else {
+                            programList
+                        }
+                    } else {
+                        if sessions.isEmpty {
+                            noSessionsEmptyState
+                        } else {
+                            sessionList
+                        }
+                    }
                 }
             }
-            .navigationTitle("Select HIIT Session")
+            .navigationTitle("Apply HIIT Program")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -607,20 +833,132 @@ struct SessionPickerSheet: View {
         }
     }
 
+    // MARK: Program list
+
+    private var programList: some View {
+        List {
+            Section {
+                ForEach(programs) { program in
+                    programRow(program)
+                }
+            } header: {
+                Text("Sections will be mapped onto your workout's start time.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.gray1)
+                    .textCase(nil)
+            }
+        }
+    }
+
+    private func programRow(_ program: HIITProgram) -> some View {
+        Button {
+            let synthetic = buildSyntheticSession(from: program, startingAt: workout.startDate)
+            onSelect(synthetic)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: program.sfSymbol)
+                    .font(.system(size: 18))
+                    .foregroundStyle(LinearGradient.purpleBlue)
+                    .frame(width: 36, height: 36)
+                    .background(Color.appLightGray)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(program.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.appDarkText)
+                    Text("\(program.workoutType) · \(program.formattedDuration)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.gray1)
+                    Text(programSectionSummary(program))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.gray2)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.gray2)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func programSectionSummary(_ p: HIITProgram) -> String {
+        var parts: [String] = []
+        if p.warmUpSeconds > 0 { parts.append("Warm-up") }
+        if p.highIntensitySeconds > 0 { parts.append("\(p.intervalSets)× High") }
+        if p.lowIntensitySeconds > 0 { parts.append("\(p.intervalSets)× Low") }
+        if p.coolDownSeconds > 0 { parts.append("Cool-down") }
+        return parts.joined(separator: " · ")
+    }
+
+    // Builds a temporary WorkoutSession by projecting the program's planned
+    // structure onto the workout's actual start time. Not inserted into SwiftData.
+    private func buildSyntheticSession(from program: HIITProgram, startingAt start: Date) -> WorkoutSession {
+        var sections: [SessionSection] = []
+        var cursor = start
+
+        func addSection(phase: WorkoutPhase, seconds: Int, round: Int, interval: Int) {
+            guard seconds > 0 else { return }
+            let end = cursor.addingTimeInterval(TimeInterval(seconds))
+            sections.append(SessionSection(
+                id: UUID(),
+                phase: phase,
+                plannedDurationSeconds: seconds,
+                actualDurationSeconds: seconds,
+                startTimestamp: cursor,
+                endTimestamp: end,
+                roundNumber: round,
+                intervalNumber: interval
+            ))
+            cursor = end
+        }
+
+        addSection(phase: .warmUp, seconds: program.warmUpSeconds, round: 0, interval: 0)
+
+        let cycles = program.repeatEnabled ? program.numberOfCycles : 1
+        for cycle in 1...cycles {
+            for set in 1...program.intervalSets {
+                addSection(phase: .highIntensity, seconds: program.highIntensitySeconds, round: cycle, interval: set)
+                addSection(phase: .lowIntensity,  seconds: program.lowIntensitySeconds,  round: cycle, interval: set)
+            }
+        }
+
+        addSection(phase: .coolDown, seconds: program.coolDownSeconds, round: 0, interval: 0)
+
+        return WorkoutSession(
+            programName: program.name,
+            workoutType: program.workoutType,
+            startedAt: start,
+            endedAt: cursor,
+            totalDurationSeconds: Int(cursor.timeIntervalSince(start)),
+            sections: sections,
+            timeComplianceScore: 1.0   // planned = actual for program-based analysis
+        )
+    }
+
+    // MARK: Session history list
+
+    private var closeSessions: [WorkoutSession] {
+        sessions.filter { abs($0.startedAt.timeIntervalSince(workout.startDate)) <= 2 * 60 * 60 }
+    }
+
+    private var otherSessions: [WorkoutSession] {
+        sessions.filter { abs($0.startedAt.timeIntervalSince(workout.startDate)) > 2 * 60 * 60 }
+    }
+
     private var sessionList: some View {
         List {
             if !closeSessions.isEmpty {
                 Section("Close in Time") {
-                    ForEach(closeSessions) { session in
-                        sessionRow(session)
-                    }
+                    ForEach(closeSessions) { session in sessionRow(session) }
                 }
             }
             if !otherSessions.isEmpty {
                 Section(closeSessions.isEmpty ? "All Sessions" : "Other Sessions") {
-                    ForEach(otherSessions) { session in
-                        sessionRow(session)
-                    }
+                    ForEach(otherSessions) { session in sessionRow(session) }
                 }
             }
         }
@@ -651,21 +989,40 @@ struct SessionPickerSheet: View {
         }
     }
 
-    // Step-by-step guide shown when no HIIT sessions have been saved yet
+    // Empty state when the user has no programs yet
+    private var noProgramsEmptyState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "doc.badge.plus")
+                .font(.system(size: 48))
+                .foregroundStyle(Color.gray2)
+            Text("No Programs Yet")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(Color.appDarkText)
+            Text("Create a HIIT program in the Programs tab first, then come back to apply it.")
+                .font(.system(size: 13))
+                .foregroundStyle(Color.gray1)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Spacer()
+        }
+    }
+
+    // Empty state when no sessions have been saved yet
     private var noSessionsEmptyState: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 Spacer().frame(height: 8)
 
-                Image(systemName: "figure.highintensity.intervaltraining")
-                    .font(.system(size: 52))
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 48))
                     .foregroundStyle(Color.gray2)
 
                 VStack(spacing: 6) {
-                    Text("No HIIT Sessions Yet")
+                    Text("No Saved Sessions")
                         .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(Color.appDarkText)
-                    Text("Run a HIIT program first, then come back here to compare your heart rate against the plan.")
+                    Text("Run and save a HIIT timer session first, or switch to \"My Programs\" to apply a program directly.")
                         .font(.system(size: 13))
                         .foregroundStyle(Color.gray1)
                         .multilineTextAlignment(.center)
@@ -673,16 +1030,12 @@ struct SessionPickerSheet: View {
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
-                    stepRow(number: "1", title: "Go to Programs tab",
-                            detail: "Tap the Program icon in the tab bar")
-                    stepRow(number: "2", title: "Pick or create a program",
-                            detail: "Browse Suggestions or tap + to build your own")
-                    stepRow(number: "3", title: "Run it with the timer",
+                    stepRow(number: "1", title: "Run a program with the timer",
                             detail: "Tap the play button on any program card")
-                    stepRow(number: "4", title: "Save when finished",
+                    stepRow(number: "2", title: "Save when finished",
                             detail: "Tap \"Save Workout\" on the completion screen")
-                    stepRow(number: "5", title: "Come back here and tap Apply",
-                            detail: "Your session will appear in this list")
+                    stepRow(number: "3", title: "Come back and select it here",
+                            detail: "Or switch to \"My Programs\" to skip this step")
                 }
                 .padding(16)
                 .background(Color.appLightGray)
@@ -720,26 +1073,54 @@ struct SessionPickerSheet: View {
 
 struct HIITAnalysisResultSheet: View {
     let result: HIITAnalysisResult
+    let onSave: () -> Void
+    let onDiscard: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    scoreHeader
-                    sectionBreakdown
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        scoreHeader
+                        matchedSessionRow
+                        sectionBreakdown
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
+                }
+
+                // Pinned action buttons
+                VStack(spacing: 10) {
+                    Button {
+                        onSave()
+                        dismiss()
+                    } label: {
+                        Text("Save Match")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(LinearGradient.purpleBlue)
+                            .clipShape(RoundedRectangle(cornerRadius: 25))
+                    }
+                    Button {
+                        onDiscard()
+                        dismiss()
+                    } label: {
+                        Text("Discard")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Color.gray1)
+                    }
                 }
                 .padding(.horizontal, 20)
+                .padding(.top, 12)
                 .padding(.bottom, 30)
+                .background(Color.white)
             }
             .background(Color.white)
             .navigationTitle("HIIT Analysis")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
         }
     }
 
@@ -794,6 +1175,34 @@ struct HIITAnalysisResultSheet: View {
         }
     }
 
+    private var matchedSessionRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "figure.highintensity.intervaltraining")
+                .font(.system(size: 14))
+                .foregroundStyle(LinearGradient.purpleBlue)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(result.session.programName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.appDarkText)
+                Text(result.session.startedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.gray1)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("Time Grade")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.gray1)
+                Text(result.session.timeGrade)
+                    .font(.system(size: 15, weight: .heavy))
+                    .foregroundStyle(result.session.timeGradeColor)
+            }
+        }
+        .padding(12)
+        .background(Color.appLightGray)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
     private var sectionBreakdown: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Section Breakdown")
@@ -828,17 +1237,19 @@ struct HIITAnalysisResultSheet: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 3) {
+            VStack(alignment: .trailing, spacing: 4) {
                 if sr.hasData {
                     Text("\(Int(sr.avgBPM)) bpm")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(Color.appDarkText)
-                    Text(sr.actualZone.label)
-                        .font(.system(size: 11))
-                        .foregroundStyle(sr.actualZone.color)
-                    Image(systemName: sr.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(sr.passed ? Color.green : Color.red)
+                    HStack(spacing: 4) {
+                        resultChip(value: sr.zoneMatchScore, label: "Z")
+                        resultChip(value: sr.durationMatchScore, label: "D")
+                        resultChip(value: sr.transitionScore, label: "T")
+                    }
+                    Text(String(format: "%.0f%%", sr.intervalScore * 100))
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundStyle(scoreColor(sr.intervalScore))
                 } else {
                     Text("No data")
                         .font(.system(size: 12))
@@ -849,6 +1260,16 @@ struct HIITAnalysisResultSheet: View {
         .padding(12)
         .background(Color.appLightGray)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func resultChip(value: Double, label: String) -> some View {
+        let color: Color = value >= 0.8 ? .green : value >= 0.5 ? .orange : Color.gray2
+        return Text(label)
+            .font(.system(size: 8, weight: .bold))
+            .foregroundStyle(color)
+            .frame(width: 16, height: 16)
+            .background(color.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 3))
     }
 
     private func scoreColor(_ score: Double) -> Color {
