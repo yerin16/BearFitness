@@ -109,7 +109,11 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showAnalysisResult) {
                 if let result = analysisResult {
-                    HIITAnalysisResultSheet(result: result)
+                    HIITAnalysisResultSheet(
+                        result: result,
+                        onSave: { analysisResult = nil },
+                        onDiscard: { analysisResult = nil }
+                    )
                 }
             }
             .alert("Analysis Error", isPresented: .constant(analysisError != nil)) {
@@ -137,7 +141,7 @@ struct HomeView: View {
                     NavigationLink {
                         WorkoutDetailView(workout: workout, manager: healthManager)
                     } label: {
-                        WorkoutCard(workout: workout, showPoints: false)
+                        WorkoutCard(workout: workout)
                             .padding(.horizontal, 20)
                     }
                     .buttonStyle(.plain)
@@ -796,5 +800,5 @@ struct PhaseRow: View {
 
 #Preview {
     HomeView()
-        .modelContainer(for: [HIITProgram.self, WorkoutSession.self])
+        .modelContainer(for: [HIITProgram.self, WorkoutSession.self, WorkoutAnalysisRecord.self])
 }

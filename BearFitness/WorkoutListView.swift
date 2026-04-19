@@ -7,6 +7,7 @@
 
 import SwiftUI
 import HealthKit
+import SwiftData
 
 // MARK: - Workout Filter
 
@@ -45,6 +46,11 @@ struct WorkoutListView: View {
     @State private var errorMessage: String?
     @State private var isLoading = false
     @State private var selectedFilter: WorkoutFilter = .all
+    @Query private var allRecords: [WorkoutAnalysisRecord]
+
+    private func record(for workout: HKWorkout) -> WorkoutAnalysisRecord? {
+        allRecords.first { $0.workoutUUID == workout.uuid.uuidString }
+    }
 
     var availableFilters: [WorkoutFilter] {
         let types = Set(workouts.map(\.workoutActivityType))
@@ -142,7 +148,7 @@ struct WorkoutListView: View {
                         NavigationLink {
                             WorkoutDetailView(workout: workout, manager: manager)
                         } label: {
-                            WorkoutCard(workout: workout, showPoints: hasPoints(workout))
+                            WorkoutCard(workout: workout, analysisRecord: record(for: workout))
                         }
                         .buttonStyle(.plain)
                     }
@@ -239,10 +245,6 @@ struct WorkoutListView: View {
         isLoading = false
     }
 
-    func hasPoints(_ workout: HKWorkout) -> Bool {
-        guard let index = workouts.firstIndex(where: { $0.uuid == workout.uuid }) else { return false }
-        return index < 2
-    }
 }
 
 // MARK: - Filter Pill
@@ -279,7 +281,7 @@ struct FilterPill: View {
 
 struct WorkoutCard: View {
     let workout: HKWorkout
-    var showPoints: Bool = false
+    var analysisRecord: WorkoutAnalysisRecord? = nil
 
     var body: some View {
         HStack(spacing: 14) {
@@ -313,14 +315,20 @@ struct WorkoutCard: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 4) {
-                if showPoints {
-                    HStack(spacing: 3) {
-                        Text("+20")
-                            .font(.pointsBadge)
-                            .gradientForeground()
-                        Image(systemName: "star.circle.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.gradientPurple)
+                if let rec = analysisRecord {
+                    // Matched badge
+                    VStack(alignment: .trailing, spacing: 3) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.gradientBlue)
+                            Text(rec.matchRateString)
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(Color.gradientBlue)
+                        }
+                        Text("\(rec.hrGrade) · +\(rec.totalPoints)pts")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(rec.hrGradeColor)
                     }
                 }
 

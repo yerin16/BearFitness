@@ -15,7 +15,7 @@ struct BearFitnessApp: App {
     init() {
         do {
             // Create schema with migration options
-            let schema = Schema([HIITProgram.self, WorkoutSession.self])
+            let schema = Schema([HIITProgram.self, WorkoutSession.self, WorkoutAnalysisRecord.self])
             let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             container = try ModelContainer(for: schema, configurations: config)
         } catch {

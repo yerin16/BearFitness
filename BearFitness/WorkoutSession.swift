@@ -131,4 +131,18 @@ enum WorkoutPhase: String, Codable, CaseIterable {
         case .coolDown:      return Color(red: 0.20, green: 0.56, blue: 0.98)
         }
     }
+
+    // Abbreviated label for chart annotations
+    var shortLabel: String {
+        switch self {
+        case .warmUp:        return "WU"
+        case .highIntensity: return "HI"
+        case .lowIntensity:  return "LI"
+        case .coolDown:      return "CD"
+        }
+    }
+
+    // Numeric BPM bounds for chart overlay
+    var targetBPMLow:  Double { switch self { case .highIntensity: return 140; default: return 100 } }
+    var targetBPMHigh: Double { switch self { case .highIntensity: return 170; case .lowIntensity: return 139; default: return 119 } }
 }
