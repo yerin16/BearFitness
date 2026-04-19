@@ -381,7 +381,7 @@ struct SuggestionCard: View {
             .disabled(isAdded)
         }
         .padding(14)
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 15))
         .cardShadow()
     }

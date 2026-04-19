@@ -105,7 +105,7 @@ struct WorkoutListView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.white.ignoresSafeArea()
+                Color(.systemBackground).ignoresSafeArea()
 
                 if isLoading && workouts.isEmpty {
                     ProgressView("Loading workouts...")
@@ -120,9 +120,13 @@ struct WorkoutListView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
         .task {
             await loadData()
+        }
+        .onAppear {
+            Task { await loadData() }
         }
     }
 
@@ -233,6 +237,7 @@ struct WorkoutListView: View {
 
     // MARK: - Data
 
+    @MainActor
     func loadData() async {
         if workouts.isEmpty { isLoading = true }
         errorMessage = nil
@@ -339,7 +344,7 @@ struct WorkoutCard: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 15)
-        .background(Color.white)
+        .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 15))
         .cardShadow()
     }

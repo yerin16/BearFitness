@@ -236,7 +236,7 @@ struct ProgramFormContent: View {
             }
             .padding(.bottom, 30)
         }
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 
     // MARK: - Workout Type Picker
