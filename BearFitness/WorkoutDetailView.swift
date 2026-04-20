@@ -240,8 +240,6 @@ struct WorkoutDetailView: View {
             totalPoints: result.totalPoints,
             maxPoints: result.maxPossiblePoints,
             hrGrade: result.grade,
-            timeGrade: result.session.timeGrade,
-            timeCompliance: result.session.timeComplianceScore,
             sectionsData: try? JSONEncoder().encode(overlays)
         )
         modelContext.insert(record)
@@ -298,8 +296,6 @@ struct WorkoutDetailView: View {
                 scoreStatColumn(label: "HR Grade", value: record.hrGrade, color: record.hrGradeColor)
                 Divider().frame(height: 36)
                 scoreStatColumn(label: "Points", value: "+\(record.totalPoints)", color: .gradientBlue)
-                Divider().frame(height: 36)
-                scoreStatColumn(label: "Time", value: record.timeGrade, color: record.timeGradeColor)
             }
         }
         .padding(14)
@@ -390,33 +386,44 @@ struct WorkoutDetailView: View {
             let overlays = existingRecord?.sectionOverlays ?? []
             let yMin = minBPM - 10
             let yMax = maxBPM + 10
+            // Clamp overlay dates to the actual workout window so sections that
+            // extend past the workout end don't stretch the x-axis or paint
+            // outside the chart frame.
+            let xStart = workout.startDate
+            let xEnd   = workout.endDate
 
             VStack(alignment: .leading, spacing: 8) {
                 Chart {
                     // ── Section target-zone bands (rendered first = lowest layer) ──
                     ForEach(overlays) { overlay in
-                        // Colored band for the target BPM zone
-                        RectangleMark(
-                            xStart: .value("Start", overlay.startDate),
-                            xEnd:   .value("End",   overlay.endDate),
-                            yStart: .value("Low",   overlay.targetLow),
-                            yEnd:   .value("High",  overlay.targetHigh)
-                        )
-                        .foregroundStyle(
-                            (overlay.phase?.color ?? Color.gray).opacity(0.13)
-                        )
-
-                        // Vertical divider at the section boundary
-                        RuleMark(x: .value("Section", overlay.startDate))
-                            .foregroundStyle(
-                                (overlay.phase?.color ?? Color.gray).opacity(0.45)
+                        let clampedStart = max(overlay.startDate, xStart)
+                        let clampedEnd   = min(overlay.endDate,   xEnd)
+                        if clampedStart < clampedEnd {
+                            // Colored band for the target BPM zone
+                            RectangleMark(
+                                xStart: .value("Start", clampedStart),
+                                xEnd:   .value("End",   clampedEnd),
+                                yStart: .value("Low",   overlay.targetLow),
+                                yEnd:   .value("High",  overlay.targetHigh)
                             )
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3]))
-                            .annotation(position: .top, alignment: .leading, spacing: 2) {
-                                Text(overlay.phase?.shortLabel ?? "")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .foregroundStyle(overlay.phase?.color ?? Color.gray)
+                            .foregroundStyle(
+                                (overlay.phase?.color ?? Color.gray).opacity(0.13)
+                            )
+
+                            // Vertical divider at the section boundary (only if inside window)
+                            if overlay.startDate >= xStart {
+                                RuleMark(x: .value("Section", overlay.startDate))
+                                    .foregroundStyle(
+                                        (overlay.phase?.color ?? Color.gray).opacity(0.45)
+                                    )
+                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3]))
+                                    .annotation(position: .top, alignment: .leading, spacing: 2) {
+                                        Text(overlay.phase?.shortLabel ?? "")
+                                            .font(.system(size: 8, weight: .bold))
+                                            .foregroundStyle(overlay.phase?.color ?? Color.gray)
+                                    }
                             }
+                        }
                     }
 
                     // ── Actual HR area + line ──
@@ -449,6 +456,8 @@ struct WorkoutDetailView: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
                 }
                 .frame(height: 210)
+                .clipped()
+                .chartXScale(domain: xStart...xEnd)
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                         AxisGridLine().foregroundStyle(Color.gray2.opacity(0.3))
@@ -938,8 +947,7 @@ struct SessionPickerSheet: View {
             startedAt: start,
             endedAt: cursor,
             totalDurationSeconds: Int(cursor.timeIntervalSince(start)),
-            sections: sections,
-            timeComplianceScore: 1.0   // planned = actual for program-based analysis
+            sections: sections
         )
     }
 
@@ -978,9 +986,6 @@ struct SessionPickerSheet: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Color.appDarkText)
                     Spacer()
-                    Text(session.timeGrade)
-                        .font(.system(size: 13, weight: .heavy))
-                        .foregroundStyle(session.timeGradeColor)
                 }
                 Text(session.formattedDate)
                     .font(.system(size: 12))
@@ -1193,14 +1198,6 @@ struct HIITAnalysisResultSheet: View {
                     .foregroundStyle(Color.gray1)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("Time Grade")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.gray1)
-                Text(result.session.timeGrade)
-                    .font(.system(size: 15, weight: .heavy))
-                    .foregroundStyle(result.session.timeGradeColor)
-            }
         }
         .padding(12)
         .background(Color.appLightGray)
@@ -1248,7 +1245,6 @@ struct HIITAnalysisResultSheet: View {
                         .foregroundStyle(Color.appDarkText)
                     HStack(spacing: 4) {
                         resultChip(value: sr.zoneMatchScore, label: "Z")
-                        resultChip(value: sr.durationMatchScore, label: "D")
                         resultChip(value: sr.transitionScore, label: "T")
                     }
                     Text(String(format: "%.0f%%", sr.intervalScore * 100))

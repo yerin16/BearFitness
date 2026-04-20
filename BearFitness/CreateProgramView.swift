@@ -20,23 +20,35 @@ struct CreateProgramView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("Cancel") { dismiss() }
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Color.gray1)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(Color.appLightGray)
-                            .clipShape(Capsule())
+                        Button {
+                            dismiss()
+                        } label: {
+                            Text("Cancel")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color.gray1)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(Color.appLightGray)
+                                .clipShape(Capsule())
+                                .fixedSize()
+                        }
+                        .buttonStyle(.plain)
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Save") { saveProgram() }
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(form.name.isEmpty ? AnyShapeStyle(Color.gray2) : AnyShapeStyle(LinearGradient.purpleBlue))
-                            .clipShape(Capsule())
-                            .disabled(form.name.isEmpty)
+                        Button {
+                            saveProgram()
+                        } label: {
+                            Text("Save")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(form.name.isEmpty ? AnyShapeStyle(Color.gray2) : AnyShapeStyle(LinearGradient.purpleBlue))
+                                .clipShape(Capsule())
+                                .fixedSize()
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(form.name.isEmpty)
                     }
                 }
         }
@@ -66,25 +78,35 @@ struct EditProgramView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("Cancel") { dismiss() }
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Color.gray1)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(Color.appLightGray)
-                            .clipShape(Capsule())
+                        Button {
+                            dismiss()
+                        } label: {
+                            Text("Cancel")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color.gray1)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(Color.appLightGray)
+                                .clipShape(Capsule())
+                                .fixedSize()
+                        }
+                        .buttonStyle(.plain)
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Save") {
+                        Button {
                             form.applyTo(program)
                             dismiss()
+                        } label: {
+                            Text("Save")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(form.name.isEmpty ? AnyShapeStyle(Color.gray2) : AnyShapeStyle(LinearGradient.purpleBlue))
+                                .clipShape(Capsule())
+                                .fixedSize()
                         }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(form.name.isEmpty ? AnyShapeStyle(Color.gray2) : AnyShapeStyle(LinearGradient.purpleBlue))
-                        .clipShape(Capsule())
+                        .buttonStyle(.plain)
                         .disabled(form.name.isEmpty)
                     }
                 }

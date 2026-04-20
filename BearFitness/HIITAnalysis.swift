@@ -5,18 +5,6 @@
 
 import Foundation
 
-// BPM ranges that map to "passing" for each phase
-private extension WorkoutPhase {
-    var targetBPMClosedRange: ClosedRange<Double> {
-        switch self {
-        case .warmUp:        return 100...119
-        case .highIntensity: return 140...170
-        case .lowIntensity:  return 100...139
-        case .coolDown:      return 100...119
-        }
-    }
-}
-
 // Whether HR should rise, fall, or has no expectation between two adjacent phases
 private enum TransitionDirection { case rising, falling, neutral }
 
@@ -74,19 +62,16 @@ struct SectionAnalysis: Identifiable {
         return Double(inZone) / Double(heartRateSamples.count)
     }
 
-    // Alias kept for backwards-compatible display code
+    // Alias kept for display code
     var compliancePercent: Double { zoneMatchScore }
 
-    // How close actual duration was to planned (0–1, capped at 1)
-    var durationMatchScore: Double { section.timeFraction }
-
-    // Combined interval score: 50% zone + 30% duration + 20% transition
-    // If HR data is unavailable, zone weight redistributes to the other two.
+    // Combined interval score: 70% zone match + 30% transition quality
+    // Falls back to transition-only when no HR data is available.
     var intervalScore: Double {
         if hasData {
-            return 0.5 * zoneMatchScore + 0.3 * durationMatchScore + 0.2 * transitionScore
+            return 0.7 * zoneMatchScore + 0.3 * transitionScore
         } else {
-            return 0.6 * durationMatchScore + 0.4 * transitionScore
+            return transitionScore
         }
     }
 }
@@ -109,17 +94,12 @@ struct HIITAnalysisResult: Identifiable {
 
     var overallScoreString: String { String(format: "%.0f%%", overallScore * 100) }
 
-    // MARK: Component Averages (used by breakdown bars)
+    // MARK: Component Averages
 
     var avgZoneMatchScore: Double {
         let s = sectionResults.filter(\.hasData)
         guard !s.isEmpty else { return 0 }
         return s.map(\.zoneMatchScore).reduce(0, +) / Double(s.count)
-    }
-
-    var avgDurationMatchScore: Double {
-        guard !sectionResults.isEmpty else { return 0 }
-        return sectionResults.map(\.durationMatchScore).reduce(0, +) / Double(sectionResults.count)
     }
 
     var avgTransitionScore: Double {
@@ -130,38 +110,18 @@ struct HIITAnalysisResult: Identifiable {
 
     // MARK: Points System
     //
-    // Per section with HR data:
-    //   intervalScore × 10  (max 10 pts, formula: 50% zone + 30% duration + 20% transition)
-    //   +3 streak bonus per section when 3+ consecutive sections score ≥ 0.8
-    // Global:
-    //   +20 completion bonus if timeComplianceScore ≥ 0.95
+    // Per section with HR data: intervalScore × 10 (max 10 pts; 70% zone + 30% transition)
 
     var totalPoints: Int {
-        let withData = sectionResults.filter(\.hasData)
-        guard !withData.isEmpty else { return 0 }
-
-        var points = 0
-        var streak = 0
-
-        for sr in withData {
-            let sectionPts = Int(sr.intervalScore * 10)
-            points += sectionPts
-            if sr.intervalScore >= 0.8 {
-                streak += 1
-                if streak >= 3 { points += 3 }
-            } else {
-                streak = 0
-            }
-        }
-
-        if session.timeComplianceScore >= 0.95 { points += 20 }
-        return points
+        sectionResults
+            .filter(\.hasData)
+            .reduce(0) { $0 + Int($1.intervalScore * 10) }
     }
 
     var maxPossiblePoints: Int {
         let n = sectionResults.filter(\.hasData).count
         guard n > 0 else { return 1 }
-        return n * 10 + max(0, n - 2) * 3 + 20
+        return n * 10
     }
 
     var grade: String {
