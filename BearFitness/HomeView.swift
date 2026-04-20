@@ -35,7 +35,7 @@ struct HomeView: View {
     @State private var showLevelSheet = false
     @State private var showTutorial = false
 
-    // MARK: - Score & Streak computed values
+    // MARK: - Points (home hero)
 
     var totalAllTimePoints: Int { allRecords.reduce(0) { $0 + $1.totalPoints } }
 
@@ -43,8 +43,6 @@ struct HomeView: View {
         let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
         return allRecords.filter { $0.analyzedAt >= cutoff }.reduce(0) { $0 + $1.totalPoints }
     }
-
-    var currentStreak: Int { calculateStreak() }
 
     var pointsLevel: (name: String, color: Color, nextThreshold: Int) {
         switch totalAllTimePoints {
@@ -87,8 +85,7 @@ struct HomeView: View {
                             .padding(.horizontal, 20)
                             .padding(.top, 8)
                         
-                        // Score & Streak hero card
-                        scoreStreakCard
+                        scoreHeroCard
                             .padding(.horizontal, 20)
 
                         ActivityChartCard(records: allRecords, workouts: workouts)
@@ -195,12 +192,11 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Score & Streak Card
+    // MARK: - Score hero card
 
-    var scoreStreakCard: some View {
-        HStack(spacing: 0) {
-            // Total Points column
-            VStack(alignment: .leading, spacing: 8) {
+    var scoreHeroCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
                 HStack(spacing: 6) {
                     Image(systemName: "star.circle.fill")
                         .font(.system(size: 14))
@@ -209,57 +205,65 @@ struct HomeView: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.gray1)
                 }
-
-                Text("\(totalAllTimePoints)")
-                    .font(.system(size: 36, weight: .heavy))
-                    .foregroundStyle(LinearGradient.purpleBlue)
-
-                // Level badge — tap to see all levels
-                Button { showLevelSheet = true } label: {
-                    HStack(spacing: 4) {
-                        Text(pointsLevel.name)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .bold))
-                    }
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(pointsLevel.color)
-                    .clipShape(Capsule())
-                }
-                .sheet(isPresented: $showLevelSheet) {
-                    LevelProgressSheet(totalPoints: totalAllTimePoints)
-                        .presentationDetents([.medium, .large])
-                }
-
-                // Progress to next level
-                if totalAllTimePoints < 1000 {
-                    VStack(alignment: .leading, spacing: 3) {
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(Color.gray2.opacity(0.2))
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(pointsLevel.color)
-                                    .frame(width: geo.size.width * levelProgress)
-                                    .animation(.easeOut(duration: 0.6), value: levelProgress)
-                            }
-                        }
-                        .frame(height: 6)
-
-                        Text("\(pointsLevel.nextThreshold - totalAllTimePoints) pts to next level")
-                            .font(.system(size: 9))
-                            .foregroundStyle(Color.gray1)
-                    }
-                } else {
-                    Text("Max level reached!")
+                Spacer()
+                HStack(spacing: 3) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 9))
+                    Text("+\(weeklyPoints) this week")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.55, green: 0.20, blue: 0.98))
                 }
+                .foregroundStyle(Color.gradientBlue)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.gradientBlue.opacity(0.1))
+                .clipShape(Capsule())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
 
+            Text("\(totalAllTimePoints)")
+                .font(.system(size: 36, weight: .heavy))
+                .foregroundStyle(LinearGradient.purpleBlue)
+
+            Button { showLevelSheet = true } label: {
+                HStack(spacing: 4) {
+                    Text(pointsLevel.name)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(pointsLevel.color)
+                .clipShape(Capsule())
+            }
+            .sheet(isPresented: $showLevelSheet) {
+                LevelProgressSheet(totalPoints: totalAllTimePoints)
+                    .presentationDetents([.medium, .large])
+            }
+
+            if totalAllTimePoints < 1000 {
+                VStack(alignment: .leading, spacing: 3) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.gray2.opacity(0.2))
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(pointsLevel.color)
+                                .frame(width: geo.size.width * levelProgress)
+                                .animation(.easeOut(duration: 0.6), value: levelProgress)
+                        }
+                    }
+                    .frame(height: 6)
+
+                    Text("\(pointsLevel.nextThreshold - totalAllTimePoints) pts to next level")
+                        .font(.system(size: 9))
+                        .foregroundStyle(Color.gray1)
+                }
+            } else {
+                Text("Max level reached!")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.55, green: 0.20, blue: 0.98))
+            }
         }
         .padding(20)
         .background(Color(.secondarySystemBackground))
@@ -575,28 +579,6 @@ struct HomeView: View {
         }
     }
     
-    func calculateStreak() -> Int {
-        // Calculate consecutive days with workouts
-        let calendar = Calendar.current
-        var streak = 0
-        var currentDate = calendar.startOfDay(for: Date())
-        
-        while true {
-            let hasWorkout = sessions.contains { session in
-                calendar.isDate(session.startedAt, inSameDayAs: currentDate)
-            }
-            
-            if hasWorkout {
-                streak += 1
-                currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
-            } else {
-                break
-            }
-        }
-        
-        return streak
-    }
-    
     func formatProgramDuration(_ seconds: Int) -> String {
         let h = seconds / 3600
         let m = (seconds % 3600) / 60
@@ -787,7 +769,7 @@ struct LevelProgressSheet: View {
                         levelRow(level: level, index: index)
                     }
 
-                    Text("Earn points by matching your heart-rate zone, completing sections on time, and maintaining streaks.")
+                    Text("Earn points by matching your heart-rate zones when you apply a HIIT program to an Apple Fitness workout.")
                         .font(.system(size: 12))
                         .foregroundStyle(Color.gray1)
                         .multilineTextAlignment(.center)
