@@ -14,6 +14,7 @@
 import SwiftUI
 import SwiftData
 import HealthKit
+import Charts
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
@@ -38,6 +39,7 @@ struct HomeView: View {
     // Program selection
     @State private var selectedProgramIndex: Int = 0
     @State private var showLevelSheet = false
+    @State private var showTutorial = false
 
     // MARK: - Score & Streak computed values
 
@@ -95,26 +97,15 @@ struct HomeView: View {
                         scoreStreakCard
                             .padding(.horizontal, 20)
 
-                        // This Week Performance
-                        weekPerformanceCard
+                        ActivityChartCard(records: allRecords)
                             .padding(.horizontal, 20)
-                        
-                        //Today's Content
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Today's Workouts")
-                                .font(.sectionHeader)
-                                .foregroundStyle(Color.appDarkText)
-                                .padding(.horizontal, 20)
-                            
-                            if isLoading {
-                                ProgressView()
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 40)
-                            } else {
-                                todayContent
-                            }
-                        }
-                        
+
+                        ThisWeekSummarySection(workouts: workouts, records: allRecords, healthManager: healthManager)
+                            .padding(.horizontal, 20)
+
+                        suggestedProgramSection
+                            .padding(.horizontal, 20)
+
                         Spacer(minLength: 40)
                     }
                 }
@@ -197,18 +188,7 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
                 
-                // Validation status - always show for today
-                validationStatusView
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                
-                // HIIT training benefits message
-                Text("HIIT training makes it easier to achieve fitness goals by offering maximum health benefits in a fraction of the time.")
-                    .font(Font.system(size: 14))
-                    .foregroundStyle(Color.gray1)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
+  
                 
                 // Suggested program section
                 suggestedProgramSection
@@ -337,108 +317,6 @@ struct HomeView: View {
         )
         .shadow(color: Color(red: 0.55, green: 0.20, blue: 0.98).opacity(0.08), radius: 12, y: 4)
     }
-
-    // MARK: - Week Performance Card
-    
-    var weekPerformanceCard: some View {
-        let weekSessions = sessionsThisWeek
-        let totalDuration = weekSessions.reduce(0) { $0 + $1.totalDurationSeconds }
-        let weekGoal = 3 // default should later implement so user can change goal
-        
-
-        
-        return VStack(alignment: .leading, spacing: 16) {
-            // Header with progress ring
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("This Week's Performance")
-                        .font(Font.system(size: 18, weight: .bold))
-                        .foregroundStyle(Color.appDarkText)
-                    
-                    if weekSessions.count >= weekGoal {
-                        HStack(spacing: 4) {
-                            Image(systemName: "star.fill")
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color.orange)
-                            Text("Goal achieved!")
-                                .font(Font.system(size: 12, weight: .medium))
-                                .foregroundStyle(Color.orange)
-                        }
-                    } else {
-                        Text("\(weekGoal - weekSessions.count) more to reach your goal")
-                            .font(Font.system(size: 12))
-                            .foregroundStyle(Color.gray1)
-                    }
-                }
-                
-                Spacer()
-                
-                // Circular progress indicator
-                ZStack {
-                    Circle()
-                        .stroke(Color.gray.opacity(0.2), lineWidth: 6)
-                        .frame(width: 60, height: 60)
-                    
-                    Circle()
-                        .trim(from: 0, to: min(Double(weekSessions.count) / Double(weekGoal), 1.0))
-                        .stroke(
-                            LinearGradient.purpleBlue,
-                            style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                        )
-                        .frame(width: 60, height: 60)
-                        .rotationEffect(.degrees(-90))
-                        .animation(.easeInOut, value: weekSessions.count)
-                    
-                    VStack(spacing: 0) {
-                        Text("\(weekSessions.count)")
-                            .font(Font.system(size: 20, weight: .bold))
-                            .foregroundStyle(LinearGradient.purpleBlue)
-                        Text("of \(weekGoal)")
-                            .font(Font.system(size: 9, weight: .medium))
-                            .foregroundStyle(Color.gray1)
-                    }
-                }
-            }
-            
-            Divider()
-            
-            
-            // Stats strip
-            HStack(spacing: 0) {
-                weekStat(icon: "flame.fill",
-                         label: "Sessions",
-                         value: "\(weekSessions.count)",
-                         color: .orange)
-                Divider().frame(height: 40)
-                weekStat(icon: "clock.fill",
-                         label: "Duration",
-                         value: formatShortDuration(totalDuration),
-                         color: .blue)
-                Divider().frame(height: 40)
-                weekStat(icon: "star.fill",
-                         label: "Points",
-                         value: "+\(weeklyPoints)",
-                         color: Color(red: 0.55, green: 0.20, blue: 0.98))
-            }
-            .background(Color.appLightGray)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-        .padding(20)
-        .background(
-            LinearGradient(
-                colors: [Color(.systemBackground), Color.purple.opacity(0.03)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(LinearGradient.purpleBlue.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(color: Color.gradientBlue.opacity(0.1), radius: 10, y: 5)
-    }
-    
     private func weekStat(icon: String, label: String, value: String, color: Color) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
@@ -458,82 +336,6 @@ struct HomeView: View {
         .padding(.vertical, 10)
     }
 
-    //Validation Status - Simplified
-    
-    @ViewBuilder
-    var validationStatusView: some View {
-        let unvalidatedCount = unvalidatedWorkoutsToday.count
-        
-        VStack(alignment: .leading, spacing: 12) {
-            if unvalidatedCount > 0 {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "info.circle.fill")
-                            .font(Font.system(size: 18))
-                            .foregroundStyle(LinearGradient.purpleBlue)
-                        
-                        Text("Is this HIIT training done in BearFitness?")
-                            .font(Font.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.appDarkText)
-                    }
-                    
-                    Text("If you completed a HIIT program with BearFitness, validate it to track your performance and earn points!")
-                        .font(Font.system(size: 13))
-                        .foregroundStyle(Color.gray1)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.leading, 26)
-                }
-                
-                // Show validate buttons for each unvalidated workout
-                ForEach(unvalidatedWorkoutsToday, id: \.uuid) { workout in
-                    Button {
-                        selectedWorkout = workout
-                        showSessionPicker = true
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(workout.workoutActivityType.name)
-                                    .font(Font.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(Color.appDarkText)
-                                Text(workout.startDate.formatted(date: .omitted, time: .shortened))
-                                    .font(Font.system(size: 12))
-                                    .foregroundStyle(Color.gray1)
-                            }
-                            Spacer()
-                            Text("Validate")
-                                .font(Font.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(LinearGradient.purpleBlue)
-                                .clipShape(Capsule())
-                        }
-                        .padding(12)
-                        .background(Color(.secondarySystemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(LinearGradient.purpleBlue, lineWidth: 1)
-                        )
-                    }
-                }
-            } else {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(Font.system(size: 16))
-                        .foregroundStyle(Color.green)
-                    
-                    Text("All workouts validated!")
-                        .font(Font.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.appDarkText)
-                }
-            }
-        }
-        .padding(16)
-        .background(LinearGradient.purpleBlue.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 15))
-    }
-    
     //Empty State
     
     var emptyStateView: some View {
@@ -555,11 +357,6 @@ struct HomeView: View {
                     .foregroundStyle(Color.appDarkText)
             }
             
-            Text("HIIT training makes it easier to achieve fitness goals by offering maximum health benefits in a fraction of the time.")
-                .font(Font.system(size: 14))
-                .foregroundStyle(Color.gray1)
-                .fixedSize(horizontal: false, vertical: true)
-            
             Text("Would you like to get started?")
                 .font(Font.system(size: 15, weight: .medium))
                 .foregroundStyle(Color.appDarkText)
@@ -579,38 +376,50 @@ struct HomeView: View {
             
             VStack(alignment: .leading, spacing: 14) {
                 // Program selector with dropdown
-                Menu {
-                    ForEach(Array(programs.enumerated()), id: \.element.id) { index, program in
-                        Button {
-                            selectedProgramIndex = index
-                        } label: {
-                            HStack {
-                                Image(systemName: program.sfSymbol)
-                                Text(program.name)
-                                if index == selectedProgramIndex {
-                                    Image(systemName: "checkmark")
+                HStack {
+                    Menu {
+                        ForEach(Array(programs.enumerated()), id: \.element.id) { index, program in
+                            Button {
+                                selectedProgramIndex = index
+                            } label: {
+                                HStack {
+                                    Image(systemName: program.sfSymbol)
+                                    Text(program.name)
+                                    if index == selectedProgramIndex {
+                                        Image(systemName: "checkmark")
+                                    }
                                 }
                             }
                         }
+                    } label: {
+                        HStack {
+                            Text("My Program:")
+                                .font(Font.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color.gray1)
+
+                            Text(selectedProgram.name)
+                                .font(Font.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Color.appDarkText)
+
+                            Image(systemName: "chevron.down")
+                                .font(Font.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.gray1)
+                        }
                     }
-                } label: {
-                    HStack {
-                        Text("My Program:")
-                            .font(Font.system(size: 13, weight: .medium))
+                    .buttonStyle(.plain)
+
+                    Spacer()
+
+                    Button { showTutorial = true } label: {
+                        Image(systemName: "questionmark.circle")
+                            .font(.system(size: 18))
                             .foregroundStyle(Color.gray1)
-                        
-                        Text(selectedProgram.name)
-                            .font(Font.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Color.appDarkText)
-                        
-                        Image(systemName: "chevron.down")
-                            .font(Font.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color.gray1)
-                        
-                        Spacer()
+                    }
+                    .sheet(isPresented: $showTutorial) {
+                        TutorialSheet(workoutType: selectedProgram.workoutType)
+                            .presentationDetents([.medium])
                     }
                 }
-                .buttonStyle(.plain)
                 
                 // Program summary with icons
                 VStack(spacing: 10) {
@@ -681,21 +490,6 @@ struct HomeView: View {
                     }
                     .padding(.vertical, 8)
                 }
-                
-                Divider()
-                
-                // Instructions
-                Text("💡 To sync with Apple Watch:")
-                    .font(Font.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.appDarkText)
-                
-                VStack(alignment: .leading, spacing: 6) {
-                    instructionRow(number: "1", text: "Start a workout on your Apple Watch")
-                    instructionRow(number: "2", text: "Choose the matching activity type (\(selectedProgram.workoutType))")
-                    instructionRow(number: "3", text: "Start the HIIT timer in BearFitness")
-                    instructionRow(number: "4", text: "After completing, validate and earn points!")
-                }
-                .padding(.leading, 4)
                 
                 // Start button
                 Button {
@@ -1146,6 +940,258 @@ struct LevelProgressSheet: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(current ? level.color.opacity(0.3) : Color.appLightGray, lineWidth: 1)
         )
+    }
+}
+
+//Activity Chart Card
+
+struct ActivityChartCard: View {
+    let records: [WorkoutAnalysisRecord]
+
+    enum Period: String, CaseIterable { case week = "W", month = "M", year = "Y" }
+
+    @State private var period: Period = .week
+
+    struct Bucket: Identifiable {
+        let id: String
+        let label: String
+        let isCurrent: Bool
+        let points: Int
+    }
+
+    private var buckets: [Bucket] {
+        let cal = Calendar.current
+        let now = Date()
+        switch period {
+        case .week:
+            return (0..<7).reversed().compactMap { offset -> Bucket? in
+                guard let day = cal.date(byAdding: .day, value: -offset, to: now) else { return nil }
+                let start = cal.startOfDay(for: day)
+                let end   = cal.date(byAdding: .day, value: 1, to: start)!
+                let pts   = records.filter { $0.matchedSessionDate >= start && $0.matchedSessionDate < end }
+                                   .reduce(0) { $0 + $1.totalPoints }
+                return Bucket(id: "\(offset)", label: dayLabel(day, offset: offset), isCurrent: offset == 0, points: pts)
+            }
+        case .month:
+            return (0..<4).reversed().compactMap { offset -> Bucket? in
+                guard let wk = cal.date(byAdding: .weekOfYear, value: -offset, to: cal.startOfDay(for: now)) else { return nil }
+                let monday = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: wk))!
+                let sunday = cal.date(byAdding: .day, value: 7, to: monday)!
+                let pts    = records.filter { $0.matchedSessionDate >= monday && $0.matchedSessionDate < sunday }
+                                    .reduce(0) { $0 + $1.totalPoints }
+                let label  = offset == 0 ? "This Wk" : "Wk \(4 - offset)"
+                return Bucket(id: "\(offset)", label: label, isCurrent: offset == 0, points: pts)
+            }
+        case .year:
+            return (0..<12).reversed().compactMap { offset -> Bucket? in
+                guard let md = cal.date(byAdding: .month, value: -offset, to: now),
+                      let start = cal.date(from: cal.dateComponents([.year, .month], from: md)),
+                      let end   = cal.date(byAdding: .month, value: 1, to: start) else { return nil }
+                let pts   = records.filter { $0.matchedSessionDate >= start && $0.matchedSessionDate < end }
+                                   .reduce(0) { $0 + $1.totalPoints }
+                return Bucket(id: "\(offset)", label: monthLabel(start), isCurrent: offset == 0, points: pts)
+            }
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+
+            Text("Points Activity")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.appDarkText)
+
+            // Full-width W / M / Y slider
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color(.tertiarySystemFill))
+
+                    let slotW = geo.size.width / CGFloat(Period.allCases.count)
+                    let idx   = Period.allCases.firstIndex(of: period) ?? 0
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(.secondarySystemBackground))
+                        .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
+                        .frame(width: slotW - 6, height: geo.size.height - 6)
+                        .offset(x: CGFloat(idx) * slotW + 3)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: period)
+
+                    HStack(spacing: 0) {
+                        ForEach(Period.allCases, id: \.self) { p in
+                            Button { withAnimation { period = p } } label: {
+                                Text(p.rawValue)
+                                    .font(.system(size: 13, weight: period == p ? .bold : .regular))
+                                    .foregroundStyle(period == p ? Color.appDarkText : Color.gray1)
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(height: 36)
+
+            if buckets.allSatisfy({ $0.points == 0 }) {
+                Text(emptyStateMessage)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.gray1)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(height: 100)
+            } else {
+                Chart(buckets) { bucket in
+                    BarMark(
+                        x: .value("Period", bucket.label),
+                        y: .value("Points", bucket.points)
+                    )
+                    .foregroundStyle(bucket.isCurrent
+                        ? AnyShapeStyle(LinearGradient(
+                            colors: [Color(red: 0.55, green: 0.20, blue: 0.98), Color.gradientBlue],
+                            startPoint: .bottom, endPoint: .top))
+                        : AnyShapeStyle(Color(.systemGray4))
+                    )
+                    .cornerRadius(5)
+                }
+                .chartYAxis {
+                    AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
+                            .foregroundStyle(Color.gray2.opacity(0.25))
+                        AxisValueLabel()
+                            .font(.system(size: 9))
+                            .foregroundStyle(Color.gray1)
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks { _ in
+                        AxisValueLabel()
+                            .font(.system(size: period == .year ? 8 : 10))
+                            .foregroundStyle(Color.gray1)
+                    }
+                }
+                .frame(height: 130)
+                .animation(.easeInOut(duration: 0.25), value: period)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var emptyStateMessage: String {
+        switch period {
+        case .week:  return "No matched workouts in the last 7 days.\nSwitch to M or Y to see older activity."
+        case .month: return "No matched workouts in the last 4 weeks."
+        case .year:  return "No matched workouts in the last 12 months."
+        }
+    }
+
+    private func dayLabel(_ date: Date, offset: Int) -> String {
+        if offset == 0 { return "Today" }
+        let f = DateFormatter(); f.dateFormat = "EEE"
+        return f.string(from: date)
+    }
+
+    private func monthLabel(_ date: Date) -> String {
+        let f = DateFormatter(); f.dateFormat = "MMM"
+        return f.string(from: date)
+    }
+}
+
+//This Week Summary
+
+struct ThisWeekSummarySection: View {
+    let workouts: [HKWorkout]
+    let records: [WorkoutAnalysisRecord]
+    let healthManager: HealthKitManager
+
+    // UUIDs of workouts that have been matched/validated
+    private var matchedUUIDs: Set<String> {
+        Set(records.map { $0.workoutUUID })
+    }
+
+    private var thisWeekMatchedWorkouts: [HKWorkout] {
+        let cal = Calendar.current
+        let now = Date()
+        guard let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) else { return [] }
+        let weekEnd = cal.date(byAdding: .weekOfYear, value: 1, to: weekStart) ?? now
+        let uuids = matchedUUIDs
+        return workouts
+            .filter { $0.startDate >= weekStart && $0.startDate < weekEnd && uuids.contains($0.uuid.uuidString) }
+            .sorted { $0.startDate > $1.startDate }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("This Week Summary")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.appDarkText)
+
+            if thisWeekMatchedWorkouts.isEmpty {
+                Text("No matched workouts this week yet.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.gray1)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                ForEach(thisWeekMatchedWorkouts, id: \.uuid) { workout in
+                    let record = records.first { $0.workoutUUID == workout.uuid.uuidString }
+                    NavigationLink {
+                        WorkoutDetailView(workout: workout, manager: healthManager)
+                    } label: {
+                        WorkoutCard(workout: workout, analysisRecord: record)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Tutorial Sheet (this is in ?)
+
+struct TutorialSheet: View {
+    let workoutType: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("💡 To sync with Apple Watch:")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.appDarkText)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    tutorialRow(number: "1", text: "Start a workout on your Apple Watch")
+                    tutorialRow(number: "2", text: "Choose the matching activity type (\(workoutType))")
+                    tutorialRow(number: "3", text: "Start the HIIT timer in BearFitness")
+                    tutorialRow(number: "4", text: "After completing, validate and earn points!")
+                }
+
+                Spacer()
+            }
+            .padding(24)
+            .navigationTitle("How It Works")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func tutorialRow(number: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(number)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 24, height: 24)
+                .background(LinearGradient.purpleBlue)
+                .clipShape(Circle())
+
+            Text(text)
+                .font(.system(size: 14))
+                .foregroundStyle(Color.appDarkText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
