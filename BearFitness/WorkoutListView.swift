@@ -319,21 +319,15 @@ struct WorkoutCard: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 20) {
                 if let rec = analysisRecord {
-                    // Matched badge
-                    VStack(alignment: .trailing, spacing: 3) {
-                        HStack(spacing: 3) {
-                            Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(Color.gradientBlue)
-                            Text(rec.matchRateString)
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(Color.gradientBlue)
-                        }
-                        Text("\(rec.hrGrade) · +\(rec.totalPoints)pts")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(rec.hrGradeColor)
+                    HStack(spacing: 3) {
+                        Text("+\(rec.totalPoints)")
+                            .font(.pointsBadge)
+                            .gradientForeground()
+                        Image(systemName: "star.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.gradientPurple)
                     }
                 }
 
