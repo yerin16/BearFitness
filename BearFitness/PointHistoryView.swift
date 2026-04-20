@@ -8,24 +8,22 @@
 import SwiftUI
 import SwiftData
 import HealthKit
- 
+
 struct PointHistoryView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var manager = HealthKitManager()
- 
-    // Only applied/matched workouts — these are the ones that earned points
+
     @Query(sort: \WorkoutAnalysisRecord.analyzedAt, order: .reverse)
     private var records: [WorkoutAnalysisRecord]
- 
+
     @State private var workoutsByUUID: [String: HKWorkout] = [:]
- 
+
     var body: some View {
         ZStack {
             Color(.systemBackground).ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 20) {
- 
-                    // MARK: - Session List
+
                     if records.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "doc.text")
@@ -59,28 +57,11 @@ struct PointHistoryView: View {
         }
         .navigationTitle("Point History")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { dismiss() } label: {
-                    ZStack {
-                        Circle()
-                            .fill(Color.appLightGray)
-                            .frame(width: 32, height: 32)
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.appDarkText)
-                    }
-                }
-            }
-        }
         .task {
             await loadWorkouts()
         }
     }
- 
-    // MARK: - Load Apple Fitness Workouts
- 
+
     @MainActor
     private func loadWorkouts() async {
         do {
@@ -96,31 +77,29 @@ struct PointHistoryView: View {
         }
     }
 }
- 
+
 // MARK: - Point History Row
-// Matches the WorkoutCard layout from WorkoutListView
- 
+
 struct PointHistoryRow: View {
     let record: WorkoutAnalysisRecord
     let workout: HKWorkout?
- 
+
     var body: some View {
         HStack(spacing: 14) {
-            // Icon (matches WorkoutCard)
             Image(systemName: workout?.workoutActivityType.sfSymbol ?? "figure.run")
                 .font(.system(size: 28))
                 .foregroundStyle(LinearGradient.purpleBlue)
                 .frame(width: 50, height: 50)
- 
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(workout?.workoutActivityType.name ?? record.matchedSessionName)
                     .font(.workoutTypeSmall)
                     .gradientForeground()
- 
+
                 Text(formatDuration(workout?.duration ?? 0))
                     .font(.durationSmall)
                     .foregroundStyle(Color.appDarkText)
- 
+
                 HStack(spacing: 12) {
                     if let cal = workout?.statistics(for: HKQuantityType(.activeEnergyBurned))?
                         .sumQuantity()?.doubleValue(for: .kilocalorie()) {
@@ -135,10 +114,9 @@ struct PointHistoryRow: View {
                 .font(.system(size: 11))
                 .foregroundStyle(Color.gray1)
             }
- 
+
             Spacer()
- 
-            // Points + star (matches Figma)
+
             VStack(alignment: .trailing, spacing: 20) {
                 HStack(spacing: 3) {
                     Text("+\(record.totalPoints)")
@@ -148,7 +126,7 @@ struct PointHistoryRow: View {
                         .font(.system(size: 12))
                         .foregroundStyle(Color.gradientPurple)
                 }
- 
+
                 Text((workout?.startDate ?? record.analyzedAt)
                     .formatted(date: .numeric, time: .omitted))
                     .font(.dateCaption)
@@ -161,7 +139,7 @@ struct PointHistoryRow: View {
         .clipShape(RoundedRectangle(cornerRadius: 15))
         .cardShadow()
     }
- 
+
     func formatDuration(_ seconds: TimeInterval) -> String {
         let h = Int(seconds) / 3600
         let m = (Int(seconds) % 3600) / 60

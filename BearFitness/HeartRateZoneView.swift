@@ -33,12 +33,8 @@ struct CustomHRZone: Identifiable, Hashable {
 // MARK: - Automatic Zone Calculator
 
 struct HRZoneCalculator {
-    // Standard formula: Max HR = 220 - age
-    // Zones are percentages of Max HR:
-    //   Zone 1: 50-60% | Zone 2: 60-70% | Zone 3: 70-80% | Zone 4: 80-90% | Zone 5: 90%+
-
     static func maxHR(forAge age: Int) -> Int {
-        max(220 - age, 100) // floor at 100 to prevent nonsense values
+        max(220 - age, 100)
     }
 
     static func automaticZones(forAge age: Int) -> [CustomHRZone] {
@@ -62,13 +58,19 @@ struct HRZoneCalculator {
     }
 }
 
+// MARK: - What side was edited (used for boundary propagation)
+
+enum EditedSide {
+    case lower, upper, both
+}
+
 // MARK: - Heart Rate Zones View
 
 struct HeartRateZonesView: View {
     @Environment(\.dismiss) private var dismiss
 
     @AppStorage("hr_zone_mode") private var rawMode = HRZoneMode.automatic.rawValue
-    @AppStorage("profile_age")  private var ageString = "21"   // shared with ProfileView
+    @AppStorage("profile_age")  private var ageString = "21"
 
     @State private var manualZones: [CustomHRZone] = [
         CustomHRZone(id: 1, lower: 0,   upper: 118),
@@ -90,7 +92,6 @@ struct HeartRateZonesView: View {
         HRZoneCalculator.maxHR(forAge: age)
     }
 
-    // Zones shown to the user — either calculated or manually edited
     private var zones: [CustomHRZone] {
         isManual ? manualZones : HRZoneCalculator.automaticZones(forAge: age)
     }
@@ -163,9 +164,8 @@ struct HeartRateZonesView: View {
                         .padding(.horizontal, 20)
                     }
 
-                    // Mode helper text
                     Text(isManual
-                         ? "Tap a zone to edit its lower and upper BPM limits."
+                         ? "Tap a zone to edit its lower and upper BPM limits. Hold + or – to change quickly."
                          : "Zones are calculated from your age using Max HR = 220 – age. Edit your age on the Profile page.")
                         .font(.system(size: 12))
                         .foregroundStyle(Color.gray1)
@@ -177,26 +177,11 @@ struct HeartRateZonesView: View {
         }
         .navigationTitle("Heart Rate")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { dismiss() } label: {
-                    ZStack {
-                        Circle()
-                            .fill(Color.appLightGray)
-                            .frame(width: 32, height: 32)
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.appDarkText)
-                    }
-                }
-            }
-        }
         .navigationDestination(item: $selectedZone) { zone in
-            HeartRateZoneEditView(zone: zone) { updated in
+            HeartRateZoneEditView(zone: zone) { updated, side in
                 if let idx = manualZones.firstIndex(where: { $0.id == updated.id }) {
                     manualZones[idx] = updated
-                    linkZoneBoundaries()
+                    propagateBoundaries(editedIndex: idx, side: side)
                 }
             }
         }
@@ -250,9 +235,11 @@ struct HeartRateZonesView: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Color.appDarkText)
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(isManual ? Color.gray2 : Color.gray2.opacity(0.3))
+                if isManual {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.gray2)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
@@ -262,12 +249,30 @@ struct HeartRateZonesView: View {
         .disabled(!isManual)
     }
 
-    // Keep neighbouring zones consistent after an edit
-    func linkZoneBoundaries() {
-        for i in 1..<manualZones.count {
-            manualZones[i].lower = manualZones[i - 1].upper + 1
-        }
+    // MARK: - Boundary propagation
+
+    func propagateBoundaries(editedIndex: Int, side: EditedSide) {
+        manualZones[0].lower = 0
         manualZones[manualZones.count - 1].upper = 999
+
+        if side == .upper || side == .both {
+            if editedIndex < manualZones.count - 1 {
+                manualZones[editedIndex + 1].lower = manualZones[editedIndex].upper + 1
+                if manualZones[editedIndex + 1].upper != 999,
+                   manualZones[editedIndex + 1].lower > manualZones[editedIndex + 1].upper {
+                    manualZones[editedIndex + 1].upper = manualZones[editedIndex + 1].lower
+                }
+            }
+        }
+
+        if side == .lower || side == .both {
+            if editedIndex > 0 {
+                manualZones[editedIndex - 1].upper = manualZones[editedIndex].lower - 1
+                if manualZones[editedIndex - 1].upper < manualZones[editedIndex - 1].lower {
+                    manualZones[editedIndex - 1].lower = manualZones[editedIndex - 1].upper
+                }
+            }
+        }
     }
 }
 
@@ -277,7 +282,13 @@ struct HeartRateZoneEditView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State var zone: CustomHRZone
-    let onSave: (CustomHRZone) -> Void
+    let onSave: (CustomHRZone, EditedSide) -> Void
+
+    @State private var initialLower: Int = 0
+    @State private var initialUpper: Int = 0
+
+    private var showsLower: Bool { zone.id != 1 }
+    private var showsUpper: Bool { zone.id != 5 }
 
     var body: some View {
         ZStack {
@@ -285,17 +296,17 @@ struct HeartRateZoneEditView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
 
-                    // LOWER LIMIT
-                    limitSection(
-                        title: "LOWER LIMIT",
-                        value: Binding(
-                            get: { zone.lower },
-                            set: { zone.lower = $0 }
+                    if showsLower {
+                        limitSection(
+                            title: "LOWER LIMIT",
+                            value: Binding(
+                                get: { zone.lower },
+                                set: { zone.lower = $0 }
+                            )
                         )
-                    )
+                    }
 
-                    // UPPER LIMIT (hidden for Zone 5 — it's unlimited)
-                    if zone.id < 5 {
+                    if showsUpper {
                         limitSection(
                             title: "UPPER LIMIT",
                             value: Binding(
@@ -311,23 +322,21 @@ struct HeartRateZoneEditView: View {
         }
         .navigationTitle(zone.label)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
+        .onAppear {
+            initialLower = zone.lower
+            initialUpper = zone.upper
+        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button { dismiss() } label: {
-                    ZStack {
-                        Circle()
-                            .fill(Color.appLightGray)
-                            .frame(width: 32, height: 32)
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.appDarkText)
-                    }
-                }
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    onSave(zone)
+                    let lowerChanged = zone.lower != initialLower
+                    let upperChanged = zone.upper != initialUpper
+                    let side: EditedSide
+                    if lowerChanged && upperChanged { side = .both }
+                    else if lowerChanged { side = .lower }
+                    else { side = .upper }
+
+                    onSave(zone, side)
                     dismiss()
                 } label: {
                     Text("Save")
@@ -359,12 +368,11 @@ struct HeartRateZoneEditView: View {
                 Spacer()
 
                 HStack(spacing: 16) {
-                    Button {
+                    HoldRepeatButton(
+                        systemName: "minus.circle.fill",
+                        tint: Color.gray2
+                    ) {
                         if value.wrappedValue > 30 { value.wrappedValue -= 1 }
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundStyle(Color.gray2)
                     }
 
                     Text("\(value.wrappedValue)")
@@ -372,12 +380,11 @@ struct HeartRateZoneEditView: View {
                         .foregroundStyle(Color.appDarkText)
                         .frame(minWidth: 36)
 
-                    Button {
+                    HoldRepeatButton(
+                        systemName: "plus.circle.fill",
+                        tint: Color.gradientBlue
+                    ) {
                         if value.wrappedValue < 250 { value.wrappedValue += 1 }
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundStyle(Color.gradientBlue)
                     }
                 }
             }
@@ -387,5 +394,63 @@ struct HeartRateZoneEditView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 20)
         }
+    }
+}
+
+// MARK: - Hold-to-Repeat Button
+
+struct HoldRepeatButton: View {
+    let systemName: String
+    let tint: Color
+    let action: () -> Void
+
+    @State private var timer: Timer? = nil
+    @State private var holdStart: Date? = nil
+    @State private var isPressed = false
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: 22))
+            .foregroundStyle(tint)
+            .scaleEffect(isPressed ? 1.15 : 1.0)
+            .animation(.easeOut(duration: 0.1), value: isPressed)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        if timer == nil {
+                            isPressed = true
+                            action()
+                            holdStart = Date()
+                            scheduleNext(interval: 0.4)
+                        }
+                    }
+                    .onEnded { _ in
+                        stop()
+                    }
+            )
+    }
+
+    private func scheduleNext(interval: TimeInterval) {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { _ in
+            action()
+            let held = Date().timeIntervalSince(holdStart ?? Date())
+            let nextInterval: TimeInterval
+            switch held {
+            case ..<1.0:  nextInterval = 0.25
+            case ..<2.0:  nextInterval = 0.12
+            case ..<4.0:  nextInterval = 0.05
+            default:      nextInterval = 0.02
+            }
+            scheduleNext(interval: nextInterval)
+        }
+    }
+
+    private func stop() {
+        timer?.invalidate()
+        timer = nil
+        holdStart = nil
+        isPressed = false
     }
 }
