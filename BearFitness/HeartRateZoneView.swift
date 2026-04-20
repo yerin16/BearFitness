@@ -7,20 +7,17 @@
 
 import SwiftUI
 
-// MARK: - Zone Mode
-
 enum HRZoneMode: String {
     case automatic = "Automatic"
     case manual    = "Manual"
 }
 
-// MARK: - Custom Zone Model
+// MARK: - Custom Zone
 
 struct CustomHRZone: Identifiable, Hashable, Codable {
-    let id: Int          // 1–5
+    let id: Int
     var lower: Int
-    var upper: Int       // 999 = unlimited / shown as "+"
-
+    var upper: Int
     var label: String { "Zone \(id)" }
 
     var rangeText: String {
@@ -30,7 +27,7 @@ struct CustomHRZone: Identifiable, Hashable, Codable {
     }
 }
 
-// MARK: - Automatic Zone Calculator
+// MARK: - Automatic Zone
 
 struct HRZoneCalculator {
     static func maxHR(forAge age: Int) -> Int {
@@ -58,13 +55,11 @@ struct HRZoneCalculator {
     }
 }
 
-// MARK: - What side was edited (used for boundary propagation)
+// MARK: - Manual zone edited boundary
 
 enum EditedSide {
     case lower, upper, both
 }
-
-// MARK: - Manual Zone Persistence Helpers
 
 fileprivate let manualZonesDefaultJSON: String = {
     let defaults: [CustomHRZone] = [
@@ -85,7 +80,6 @@ fileprivate func decodeManualZones(from json: String) -> [CustomHRZone] {
     guard let data = json.data(using: .utf8),
           let zones = try? JSONDecoder().decode([CustomHRZone].self, from: data),
           zones.count == 5 else {
-        // Fallback to defaults if storage is empty/corrupt
         return [
             CustomHRZone(id: 1, lower: 0,   upper: 118),
             CustomHRZone(id: 2, lower: 120, upper: 140),
@@ -112,13 +106,9 @@ struct HeartRateZonesView: View {
 
     @AppStorage("hr_zone_mode") private var rawMode = HRZoneMode.automatic.rawValue
     @AppStorage("profile_age")  private var ageString = "21"
-
-    // Persisted manual zones (JSON-encoded in AppStorage)
     @AppStorage("hr_manual_zones_json") private var manualZonesJSON = manualZonesDefaultJSON
 
-    // In-memory view of the zones — synced back to storage whenever it changes
     @State private var manualZones: [CustomHRZone] = []
-
     @State private var selectedZone: CustomHRZone? = nil
 
     private var isManual: Bool { rawMode == HRZoneMode.manual.rawValue }
@@ -140,8 +130,6 @@ struct HeartRateZonesView: View {
             Color(.systemBackground).ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-
-                    // MARK: - Automatic / Manual Card
                     VStack(spacing: 0) {
                         modeRow(title: "Automatic", selected: !isManual) {
                             rawMode = HRZoneMode.automatic.rawValue
@@ -155,7 +143,6 @@ struct HeartRateZonesView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .padding(.horizontal, 20)
 
-                    // MARK: - Max HR Info (Automatic mode only)
                     if !isManual {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
@@ -183,7 +170,6 @@ struct HeartRateZonesView: View {
                         .padding(.horizontal, 20)
                     }
 
-                    // MARK: - Zones List
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Heart Rate Zones")
                             .font(.system(size: 18, weight: .bold))
@@ -217,11 +203,9 @@ struct HeartRateZonesView: View {
         .navigationTitle("Heart Rate")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            // Load persisted zones into state
             manualZones = decodeManualZones(from: manualZonesJSON)
         }
         .onChange(of: manualZones) { _, newValue in
-            // Persist any change back to AppStorage
             manualZonesJSON = encodeManualZones(newValue)
         }
         .navigationDestination(item: $selectedZone) { zone in
@@ -323,8 +307,6 @@ struct HeartRateZonesView: View {
     }
 }
 
-// MARK: - Per-Zone Edit View
-
 struct HeartRateZoneEditView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -398,8 +380,6 @@ struct HeartRateZoneEditView: View {
         }
     }
 
-    // MARK: - Limit Section
-
     func limitSection(title: String, value: Binding<Int>) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
@@ -443,8 +423,6 @@ struct HeartRateZoneEditView: View {
         }
     }
 }
-
-// MARK: - Hold-to-Repeat Button
 
 struct HoldRepeatButton: View {
     let systemName: String

@@ -171,16 +171,12 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: - Name Commit Logic
-
     private func commitName() {
-        guard canSaveName else { return }   // never save empty
+        guard canSaveName else { return }
         name = trimmedDraftName
         editingName = false
         nameFieldFocused = false
     }
-
-    // MARK: - Stat Card
 
     @ViewBuilder
     func statCard(value: String, label: String, onTap: @escaping () -> Void) -> some View {
@@ -203,8 +199,6 @@ struct ProfileView: View {
         }
         .buttonStyle(.plain)
     }
-
-    // MARK: - Stat Editor Sheet
 
     @ViewBuilder
     private func statEditorSheet(for field: StatField) -> some View {
@@ -256,8 +250,6 @@ struct ProfileView: View {
         return Int(digits) ?? 0
     }
 }
-
-// MARK: - Stat Editor Sheet View
 
 struct StatEditor: View {
     let title: String
@@ -311,7 +303,6 @@ struct StatEditor: View {
                     .foregroundStyle(Color.gray1)
             }
 
-            // Range hint / error message
             if let msg = errorMessage {
                 Text(msg)
                     .font(.system(size: 13, weight: .medium))
