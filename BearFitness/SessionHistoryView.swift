@@ -92,7 +92,6 @@ struct SessionCard: View {
                 .padding(.top, 4)
 
             HStack(alignment: .center, spacing: 12) {
-                // Duration
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Total Time")
                         .font(.statLabel)
@@ -105,11 +104,14 @@ struct SessionCard: View {
 
                 Spacer()
 
-                // Section heatmap — one colored dot per section
-                sectionHeatmap
-
-                // Circular grade ring
-                gradeRing
+                // Phase dot strip — one dot per section, colored by phase
+                HStack(spacing: 3) {
+                    ForEach(session.sections) { section in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(section.phase.color.opacity(0.7))
+                            .frame(width: 6, height: 22)
+                    }
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -117,40 +119,6 @@ struct SessionCard: View {
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 15))
         .cardShadow()
-    }
-
-    // Small colored dots, one per section, colored by phase and opacity by time compliance
-    private var sectionHeatmap: some View {
-        HStack(spacing: 3) {
-            ForEach(session.sections) { section in
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(section.phase.color.opacity(0.3 + section.timeFraction * 0.7))
-                    .frame(width: 6, height: 22)
-            }
-        }
-    }
-
-    // Circular progress ring with grade letter inside
-    private var gradeRing: some View {
-        ZStack {
-            Circle()
-                .stroke(session.timeGradeColor.opacity(0.18), lineWidth: 4)
-                .frame(width: 48, height: 48)
-            Circle()
-                .trim(from: 0, to: session.timeComplianceScore)
-                .stroke(session.timeGradeColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .frame(width: 48, height: 48)
-                .animation(.easeOut(duration: 0.6), value: session.timeComplianceScore)
-            VStack(spacing: 0) {
-                Text(session.timeGrade)
-                    .font(.system(size: 15, weight: .heavy))
-                    .foregroundStyle(session.timeGradeColor)
-                Text("\(Int(session.timeComplianceScore * 100))%")
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundStyle(Color.gray1)
-            }
-        }
     }
 
     func iconForType(_ type: String) -> String {
@@ -183,8 +151,7 @@ struct SessionDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
-                scoreOverview          // dual-ring banner
-                sectionTimeline        // horizontal heatmap strip
+                scoreOverview
                 sectionBreakdownBlock
                 hrAnalysisBlock
                 sessionInfoBlock
@@ -242,20 +209,6 @@ struct SessionDetailView: View {
 
     private var scoreOverview: some View {
         HStack(spacing: 0) {
-            // Time compliance ring
-            scoreRingColumn(
-                title: "Time",
-                subtitle: "Compliance",
-                value: session.timeComplianceScore,
-                label: String(format: "%.0f%%", session.timeComplianceScore * 100),
-                grade: session.timeGrade,
-                gradeColor: session.timeGradeColor,
-                ringColor: session.timeGradeColor,
-                isLoading: false
-            )
-
-            Divider().frame(height: 80).padding(.horizontal, 8)
-
             // HR match ring
             if isLoadingAnalysis {
                 VStack(spacing: 6) {
@@ -275,8 +228,7 @@ struct SessionDetailView: View {
                     label: result.overallScoreString,
                     grade: result.grade,
                     gradeColor: gradeColor(result.grade),
-                    ringColor: hrColor,
-                    isLoading: false
+                    ringColor: hrColor
                 )
             } else {
                 VStack(spacing: 6) {
@@ -313,7 +265,7 @@ struct SessionDetailView: View {
         title: String, subtitle: String,
         value: Double, label: String,
         grade: String, gradeColor: Color,
-        ringColor: Color, isLoading: Bool
+        ringColor: Color
     ) -> some View {
         VStack(spacing: 6) {
             ZStack {
@@ -356,53 +308,6 @@ struct SessionDetailView: View {
         }
     }
 
-    // MARK: - Section Timeline Strip
-
-    private var sectionTimeline: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Section Timeline")
-                .font(.sectionHeader)
-                .foregroundStyle(Color.appDarkText)
-
-            GeometryReader { geo in
-                HStack(spacing: 3) {
-                    ForEach(session.sections) { section in
-                        let totalPlanned = max(session.sections.map(\.plannedDurationSeconds).reduce(0, +), 1)
-                        let width = geo.size.width * CGFloat(section.plannedDurationSeconds) / CGFloat(totalPlanned)
-                        timelineSegment(section: section, width: max(width - 3, 4))
-                    }
-                }
-            }
-            .frame(height: 20)
-        }
-    }
-
-    private func timelineSegment(section: SessionSection, width: CGFloat) -> some View {
-        let compliance = section.timeFraction
-
-        return ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(section.phase.color.opacity(0.15))
-                .frame(width: width, height: 20)
-            RoundedRectangle(cornerRadius: 4)
-                .fill(section.phase.color)
-                .frame(width: width * compliance, height: 20)
-            Text("\(Int(compliance * 100))%")
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(Color.gray1.opacity(0.8))
-                .frame(width: width, height: 20)
-                .multilineTextAlignment(.center)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 4))
-    }
-
-    private func legendDot(color: Color, label: String) -> some View {
-        HStack(spacing: 4) {
-            Circle().fill(color).frame(width: 6, height: 6)
-            Text(label)
-        }
-    }
-
     // MARK: - Section Breakdown
 
     private var sectionBreakdownBlock: some View {
@@ -436,18 +341,9 @@ struct SessionDetailView: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(section.formattedActualDuration)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Color.appDarkText)
-
-                let pct = section.plannedDurationSeconds > 0
-                    ? Int(section.timeFraction * 100)
-                    : 100
-                Text("\(pct)% of planned")
-                    .font(.system(size: 10))
-                    .foregroundStyle(pct >= 90 ? Color.gradientBlue : Color.gray2)
-            }
+            Text(section.formattedActualDuration)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Color.appDarkText)
         }
         .padding(12)
         .background(Color.appLightGray)
@@ -554,23 +450,17 @@ struct SessionDetailView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.appDarkText)
 
-            // Three-component stacked bars (zone 50%, duration 30%, transition 20%)
+            // Two-component bars (zone 70%, transition 30%)
             VStack(spacing: 4) {
                 scoreComponentRow(
                     label: "Zone Match",
-                    weight: "50%",
+                    weight: "70%",
                     value: result.avgZoneMatchScore,
                     color: scoreColor(result.avgZoneMatchScore)
                 )
                 scoreComponentRow(
-                    label: "Duration",
-                    weight: "30%",
-                    value: result.avgDurationMatchScore,
-                    color: Color.gradientBlue
-                )
-                scoreComponentRow(
                     label: "Transition",
-                    weight: "20%",
+                    weight: "30%",
                     value: result.avgTransitionScore,
                     color: Color(red: 0.55, green: 0.20, blue: 0.98)
                 )
@@ -677,7 +567,6 @@ struct SessionDetailView: View {
                             // Mini score chips
                             HStack(spacing: 4) {
                                 scoreChip(value: sr.zoneMatchScore, label: "Z")
-                                scoreChip(value: sr.durationMatchScore, label: "D")
                                 scoreChip(value: sr.transitionScore, label: "T")
                             }
                             Text(String(format: "%.0f%%", sr.intervalScore * 100))

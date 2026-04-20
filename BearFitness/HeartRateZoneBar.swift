@@ -52,6 +52,37 @@ enum HeartRateZone: CaseIterable {
         }
     }
 
+    /// 1–5 for display ("Zone 1", "Zone 1–2", …).
+    var zoneNumber: Int {
+        switch self {
+        case .zone1: return 1
+        case .zone2: return 2
+        case .zone3: return 3
+        case .zone4: return 4
+        case .zone5: return 5
+        }
+    }
+
+    /// BPM bounds aligned with `from(bpm:)` — single source of truth for targets.
+    /// Z1 &lt; 100, Z2 100–119, Z3 120–139, Z4 140–159, Z5 160+.
+    var bpmBounds: ClosedRange<Double> {
+        switch self {
+        case .zone1: return 50...99
+        case .zone2: return 100...119
+        case .zone3: return 120...139
+        case .zone4: return 140...159
+        case .zone5: return 160...220
+        }
+    }
+
+    /// Merges one or more contiguous zones into one BPM range (e.g. Z1+Z2 → 50…119).
+    static func mergedBPMRange(_ zones: [HeartRateZone]) -> ClosedRange<Double> {
+        guard !zones.isEmpty else { return 0...0 }
+        let lows = zones.map { $0.bpmBounds.lowerBound }
+        let highs = zones.map { $0.bpmBounds.upperBound }
+        return (lows.min() ?? 0)...(highs.max() ?? 0)
+    }
+
     // Standard 5-zone model with ~200 bpm max HR baseline:
     // Z1 < 100, Z2 100–119, Z3 120–139, Z4 140–159, Z5 160+
     static func from(bpm: Double) -> HeartRateZone {

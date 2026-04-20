@@ -32,8 +32,6 @@ final class WorkoutAnalysisRecord {
     var totalPoints: Int
     var maxPoints: Int
     var hrGrade: String
-    var timeGrade: String
-    var timeCompliance: Double
     var analyzedAt: Date
     // JSON-encoded [SectionOverlayData] — nil for records saved before this feature
     var sectionsData: Data?
@@ -46,8 +44,6 @@ final class WorkoutAnalysisRecord {
         totalPoints: Int,
         maxPoints: Int,
         hrGrade: String,
-        timeGrade: String,
-        timeCompliance: Double,
         sectionsData: Data? = nil
     ) {
         self.workoutUUID = workoutUUID
@@ -57,8 +53,6 @@ final class WorkoutAnalysisRecord {
         self.totalPoints = totalPoints
         self.maxPoints = maxPoints
         self.hrGrade = hrGrade
-        self.timeGrade = timeGrade
-        self.timeCompliance = timeCompliance
         self.analyzedAt = Date()
         self.sectionsData = sectionsData
     }
@@ -80,13 +74,4 @@ final class WorkoutAnalysisRecord {
         }
     }
 
-    var timeGradeColor: Color {
-        switch timeGrade {
-        case "S": return Color(red: 0.55, green: 0.20, blue: 0.98)
-        case "A": return .green
-        case "B": return Color(red: 0.00, green: 0.72, blue: 0.90)
-        case "C": return .orange
-        default:  return .red
-        }
-    }
 }
