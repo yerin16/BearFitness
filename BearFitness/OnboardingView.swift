@@ -7,8 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Onboarding Container
-
 struct OnboardingView: View {
     @AppStorage("has_onboarded")  private var hasOnboarded = false
     @AppStorage("profile_name")   private var profileName   = "Your Name"
@@ -59,8 +57,6 @@ struct OnboardingView: View {
     }
 }
 
-// MARK: - Shared Pill Button
-
 struct OnboardingContinueButton: View {
     let label: String
     let showArrow: Bool
@@ -88,7 +84,7 @@ struct OnboardingContinueButton: View {
     }
 }
 
-// MARK: - Step 0: Splash
+// MARK: - Step 0: Logo
 
 struct SplashStep: View {
     let onContinue: () -> Void
@@ -118,7 +114,6 @@ struct NameStep: View {
     @Binding var lastName:  String
     let onContinue: () -> Void
 
-    // Darker text color so typed input reads clearly on the white card
     private let inputTextColor = Color(red: 0.05, green: 0.05, blue: 0.08)
 
     var canContinue: Bool { !firstName.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -176,7 +171,6 @@ struct NameStep: View {
                     .font(.system(size: 18))
                     .foregroundStyle(Color.gray2)
                 ZStack(alignment: .leading) {
-                    // Custom darker placeholder
                     if text.wrappedValue.isEmpty {
                         Text(placeholder)
                             .font(.system(size: 16, weight: .medium))
@@ -232,9 +226,7 @@ struct AgeStep: View {
     }
 }
 
-// MARK: - Vertical Age Picker (smooth drag-based, with highlight box)
-
-// MARK: - Vertical Age Picker (smooth drag-based, with highlight box)
+// MARK: - Age Picker
 
 struct VerticalAgePicker: View {
     @Binding var age: Int
@@ -250,14 +242,12 @@ struct VerticalAgePicker: View {
             let values = Array(minAge...maxAge)
 
             ZStack {
-                // SELECTION BACKGROUND — big vibrant indigo pill in the center
                 RoundedRectangle(cornerRadius: 24)
                     .fill(Color(red: 0.32, green: 0.32, blue: 0.95))
                     .frame(width: 180, height: 110)
                     .shadow(color: Color(red: 0.32, green: 0.32, blue: 0.95).opacity(0.6),
                             radius: 15, x: 0, y: 6)
 
-                // Scrolling column of numbers
                 VStack(spacing: 0) {
                     ForEach(values, id: \.self) { v in
                         Text("\(v)")
@@ -400,19 +390,16 @@ struct HeightStep: View {
     }
 }
 
-// MARK: - Horizontal Ruler Picker (drag to adjust, properly centered)
-
 struct RulerPicker: View {
     @Binding var value: Int
     let range: ClosedRange<Int>
     let majorStep: Int
 
-    private let tickSpacing: CGFloat = 14   // gap between ticks
-    private let tickWidth:   CGFloat = 2    // width of each tick
+    private let tickSpacing: CGFloat = 14
+    private let tickWidth:   CGFloat = 2
 
     @State private var dragStartValue: Int? = nil
 
-    // Total horizontal distance per one unit of value
     private var unitWidth: CGFloat { tickSpacing + tickWidth }
 
     var body: some View {
@@ -421,7 +408,6 @@ struct RulerPicker: View {
             let values = Array(range)
 
             ZStack {
-                // Tick row
                 HStack(spacing: tickSpacing) {
                     ForEach(values, id: \.self) { v in
                         let isSelected = v == value
@@ -449,7 +435,6 @@ struct RulerPicker: View {
                         .frame(width: tickWidth)
                     }
                 }
-                // Shift the whole row so the current value's tick sits exactly at centerX
                 .offset(x: centerX - offsetForValue())
                 .animation(.spring(response: 0.25, dampingFraction: 0.85), value: value)
             }
@@ -474,7 +459,6 @@ struct RulerPicker: View {
         }
     }
 
-    // Distance from first tick's leading edge to the center of the tick for `value`
     private func offsetForValue() -> CGFloat {
         let idx = value - range.lowerBound
         return CGFloat(idx) * unitWidth + tickWidth / 2
