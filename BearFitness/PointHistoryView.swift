@@ -42,10 +42,24 @@ struct PointHistoryView: View {
                     } else {
                         LazyVStack(spacing: 12) {
                             ForEach(records) { record in
-                                PointHistoryRow(
-                                    record: record,
-                                    workout: workoutsByUUID[record.workoutUUID]
-                                )
+                                if let workout = workoutsByUUID[record.workoutUUID] {
+                                    // Tappable — links into the full detail view
+                                    NavigationLink {
+                                        WorkoutDetailView(workout: workout, manager: manager)
+                                    } label: {
+                                        PointHistoryRow(
+                                            record: record,
+                                            workout: workout
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                } else {
+                                    // Workout not loaded yet (or no longer in HealthKit) — show row without link
+                                    PointHistoryRow(
+                                        record: record,
+                                        workout: nil
+                                    )
+                                }
                             }
                         }
                         .padding(.horizontal, 20)

@@ -16,7 +16,7 @@ enum HRZoneMode: String {
 
 // MARK: - Custom Zone Model
 
-struct CustomHRZone: Identifiable, Hashable {
+struct CustomHRZone: Identifiable, Hashable, Codable {
     let id: Int          // 1–5
     var lower: Int
     var upper: Int       // 999 = unlimited / shown as "+"
@@ -64,6 +64,47 @@ enum EditedSide {
     case lower, upper, both
 }
 
+// MARK: - Manual Zone Persistence Helpers
+
+fileprivate let manualZonesDefaultJSON: String = {
+    let defaults: [CustomHRZone] = [
+        CustomHRZone(id: 1, lower: 0,   upper: 118),
+        CustomHRZone(id: 2, lower: 120, upper: 140),
+        CustomHRZone(id: 3, lower: 141, upper: 160),
+        CustomHRZone(id: 4, lower: 161, upper: 180),
+        CustomHRZone(id: 5, lower: 181, upper: 999),
+    ]
+    if let data = try? JSONEncoder().encode(defaults),
+       let s = String(data: data, encoding: .utf8) {
+        return s
+    }
+    return "[]"
+}()
+
+fileprivate func decodeManualZones(from json: String) -> [CustomHRZone] {
+    guard let data = json.data(using: .utf8),
+          let zones = try? JSONDecoder().decode([CustomHRZone].self, from: data),
+          zones.count == 5 else {
+        // Fallback to defaults if storage is empty/corrupt
+        return [
+            CustomHRZone(id: 1, lower: 0,   upper: 118),
+            CustomHRZone(id: 2, lower: 120, upper: 140),
+            CustomHRZone(id: 3, lower: 141, upper: 160),
+            CustomHRZone(id: 4, lower: 161, upper: 180),
+            CustomHRZone(id: 5, lower: 181, upper: 999),
+        ]
+    }
+    return zones
+}
+
+fileprivate func encodeManualZones(_ zones: [CustomHRZone]) -> String {
+    if let data = try? JSONEncoder().encode(zones),
+       let s = String(data: data, encoding: .utf8) {
+        return s
+    }
+    return manualZonesDefaultJSON
+}
+
 // MARK: - Heart Rate Zones View
 
 struct HeartRateZonesView: View {
@@ -72,13 +113,11 @@ struct HeartRateZonesView: View {
     @AppStorage("hr_zone_mode") private var rawMode = HRZoneMode.automatic.rawValue
     @AppStorage("profile_age")  private var ageString = "21"
 
-    @State private var manualZones: [CustomHRZone] = [
-        CustomHRZone(id: 1, lower: 0,   upper: 118),
-        CustomHRZone(id: 2, lower: 120, upper: 140),
-        CustomHRZone(id: 3, lower: 141, upper: 160),
-        CustomHRZone(id: 4, lower: 161, upper: 180),
-        CustomHRZone(id: 5, lower: 181, upper: 999),
-    ]
+    // Persisted manual zones (JSON-encoded in AppStorage)
+    @AppStorage("hr_manual_zones_json") private var manualZonesJSON = manualZonesDefaultJSON
+
+    // In-memory view of the zones — synced back to storage whenever it changes
+    @State private var manualZones: [CustomHRZone] = []
 
     @State private var selectedZone: CustomHRZone? = nil
 
@@ -177,6 +216,14 @@ struct HeartRateZonesView: View {
         }
         .navigationTitle("Heart Rate")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            // Load persisted zones into state
+            manualZones = decodeManualZones(from: manualZonesJSON)
+        }
+        .onChange(of: manualZones) { _, newValue in
+            // Persist any change back to AppStorage
+            manualZonesJSON = encodeManualZones(newValue)
+        }
         .navigationDestination(item: $selectedZone) { zone in
             HeartRateZoneEditView(zone: zone) { updated, side in
                 if let idx = manualZones.firstIndex(where: { $0.id == updated.id }) {
