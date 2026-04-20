@@ -5,12 +5,6 @@
 //  Created by Mijung Jung on 4/10/26.
 //
 
-//
-//  HomeView.swift
-//  BearFitness
-//
-//
-
 import SwiftUI
 import SwiftData
 import HealthKit
@@ -54,10 +48,10 @@ struct HomeView: View {
 
     var pointsLevel: (name: String, color: Color, nextThreshold: Int) {
         switch totalAllTimePoints {
-        case 0..<100:   return ("Rookie",    Color.gray1,                          100)
-        case 100..<300: return ("Athlete",   Color.gradientBlue,                   300)
-        case 300..<600: return ("Champion",  Color(red: 0.0,  green: 0.78, blue: 0.50), 600)
-        case 600..<1000:return ("Master",    Color(red: 1.0,  green: 0.67, blue: 0.08), 1000)
+        case 0..<500:   return ("Rookie",    Color.gray1,                          500)
+        case 500..<2000: return ("Athlete",   Color.gradientBlue,                   2000)
+        case 2000..<5000: return ("Champion",  Color(red: 0.0,  green: 0.78, blue: 0.50), 5000)
+        case 10000..<10000:return ("Master",    Color(red: 1.0,  green: 0.67, blue: 0.08), 10000)
         default:        return ("Elite",     Color(red: 0.55, green: 0.20, blue: 0.98), totalAllTimePoints)
         }
     }
@@ -97,13 +91,13 @@ struct HomeView: View {
                         scoreStreakCard
                             .padding(.horizontal, 20)
 
-                        ActivityChartCard(records: allRecords)
-                            .padding(.horizontal, 20)
-
-                        ThisWeekSummarySection(workouts: workouts, records: allRecords, healthManager: healthManager)
+                        ActivityChartCard(records: allRecords, workouts: workouts)
                             .padding(.horizontal, 20)
 
                         suggestedProgramSection
+                            .padding(.horizontal, 20)
+
+                        ThisWeekSummarySection(workouts: workouts, records: allRecords, healthManager: healthManager)
                             .padding(.horizontal, 20)
 
                         Spacer(minLength: 40)
@@ -266,47 +260,6 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Divider().frame(height: 100).padding(.horizontal, 16)
-
-            // Streak column
-            VStack(alignment: .center, spacing: 8) {
-                Text("Streak")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.gray1)
-
-                ZStack {
-                    Circle()
-                        .fill(currentStreak > 0
-                              ? Color.orange.opacity(0.12)
-                              : Color.gray2.opacity(0.1))
-                        .frame(width: 72, height: 72)
-                    VStack(spacing: 0) {
-                        Text(currentStreak > 0 ? "🔥" : "—")
-                            .font(.system(size: currentStreak > 0 ? 22 : 18))
-                        Text("\(currentStreak)")
-                            .font(.system(size: 20, weight: .heavy))
-                            .foregroundStyle(currentStreak > 0 ? .orange : Color.gray2)
-                    }
-                }
-
-                Text(currentStreak == 1 ? "day" : "days")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.gray1)
-
-                // Weekly points chip
-                HStack(spacing: 3) {
-                    Image(systemName: "bolt.fill")
-                        .font(.system(size: 9))
-                    Text("+\(weeklyPoints) this week")
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .foregroundStyle(Color.gradientBlue)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.gradientBlue.opacity(0.1))
-                .clipShape(Capsule())
-            }
-            .frame(maxWidth: .infinity)
         }
         .padding(20)
         .background(Color(.secondarySystemBackground))
@@ -428,13 +381,13 @@ struct HomeView: View {
                         ProgramDetailBadge(
                             icon: "clock.fill",
                             label: formatProgramDuration(selectedProgram.totalDurationSeconds),
-                            color: .blue
+                            color: Color.gradientBlue
                         )
-                        
+
                         ProgramDetailBadge(
                             icon: selectedProgram.sfSymbol,
                             label: selectedProgram.workoutType,
-                            color: .purple
+                            color: Color.gradientPurple
                         )
                     }
                     
@@ -788,13 +741,13 @@ struct LevelProgressSheet: View {
     let levels: [Level] = [
         Level(name: "Rookie",   icon: "🌱", threshold: 0,    color: Color.gray1,
               description: "Just getting started — every rep counts."),
-        Level(name: "Athlete",  icon: "⚡️", threshold: 100,  color: Color.gradientBlue,
+        Level(name: "Athlete",  icon: "⚡️", threshold: 500,  color: Color.gradientBlue,
               description: "You've built a real habit. Keep pushing."),
-        Level(name: "Champion", icon: "🏅", threshold: 300,  color: Color(red: 0.0, green: 0.78, blue: 0.50),
+        Level(name: "Champion", icon: "🏅", threshold: 2000,  color: Color(red: 0.0, green: 0.78, blue: 0.50),
               description: "Consistent effort and solid heart-rate control."),
-        Level(name: "Master",   icon: "🔥", threshold: 600,  color: Color(red: 1.0, green: 0.67, blue: 0.08),
+        Level(name: "Master",   icon: "🔥", threshold: 5000,  color: Color(red: 1.0, green: 0.67, blue: 0.08),
               description: "Your zone matching is elite. Dominating intervals."),
-        Level(name: "Elite",    icon: "👑", threshold: 1000, color: Color(red: 0.55, green: 0.20, blue: 0.98),
+        Level(name: "Elite",    icon: "👑", threshold: 10000, color: Color(red: 0.55, green: 0.20, blue: 0.98),
               description: "The highest rank. Total HR and time precision."),
     ]
 
@@ -947,16 +900,33 @@ struct LevelProgressSheet: View {
 
 struct ActivityChartCard: View {
     let records: [WorkoutAnalysisRecord]
+    let workouts: [HKWorkout]
 
     enum Period: String, CaseIterable { case week = "W", month = "M", year = "Y" }
+    enum Metric: String, CaseIterable { case points = "Points", activities = "Activities", time = "Time" }
 
     @State private var period: Period = .week
+    @State private var metric: Metric = .points
 
     struct Bucket: Identifiable {
         let id: String
         let label: String
         let isCurrent: Bool
         let points: Int
+        let count: Int
+        let totalSeconds: Double
+    }
+
+    private var durationByUUID: [String: TimeInterval] {
+        Dictionary(uniqueKeysWithValues: workouts.map { ($0.uuid.uuidString, $0.duration) })
+    }
+
+    private func bucketsFor(start: Date, end: Date) -> (points: Int, count: Int, totalSeconds: Double) {
+        let matched = records.filter { $0.matchedSessionDate >= start && $0.matchedSessionDate < end }
+        let pts = matched.reduce(0) { $0 + $1.totalPoints }
+        let cnt = matched.count
+        let secs = matched.reduce(0.0) { $0 + (durationByUUID[$1.workoutUUID] ?? 0) }
+        return (pts, cnt, secs)
     }
 
     private var buckets: [Bucket] {
@@ -968,45 +938,82 @@ struct ActivityChartCard: View {
                 guard let day = cal.date(byAdding: .day, value: -offset, to: now) else { return nil }
                 let start = cal.startOfDay(for: day)
                 let end   = cal.date(byAdding: .day, value: 1, to: start)!
-                let pts   = records.filter { $0.matchedSessionDate >= start && $0.matchedSessionDate < end }
-                                   .reduce(0) { $0 + $1.totalPoints }
-                return Bucket(id: "\(offset)", label: dayLabel(day, offset: offset), isCurrent: offset == 0, points: pts)
+                let s = bucketsFor(start: start, end: end)
+                return Bucket(id: "\(offset)", label: dayLabel(day, offset: offset), isCurrent: offset == 0, points: s.points, count: s.count, totalSeconds: s.totalSeconds)
             }
         case .month:
             return (0..<4).reversed().compactMap { offset -> Bucket? in
                 guard let wk = cal.date(byAdding: .weekOfYear, value: -offset, to: cal.startOfDay(for: now)) else { return nil }
                 let monday = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: wk))!
                 let sunday = cal.date(byAdding: .day, value: 7, to: monday)!
-                let pts    = records.filter { $0.matchedSessionDate >= monday && $0.matchedSessionDate < sunday }
-                                    .reduce(0) { $0 + $1.totalPoints }
-                let label  = offset == 0 ? "This Wk" : "Wk \(4 - offset)"
-                return Bucket(id: "\(offset)", label: label, isCurrent: offset == 0, points: pts)
+                let s = bucketsFor(start: monday, end: sunday)
+                let label = offset == 0 ? "This Wk" : "Wk \(4 - offset)"
+                return Bucket(id: "\(offset)", label: label, isCurrent: offset == 0, points: s.points, count: s.count, totalSeconds: s.totalSeconds)
             }
         case .year:
             return (0..<12).reversed().compactMap { offset -> Bucket? in
                 guard let md = cal.date(byAdding: .month, value: -offset, to: now),
                       let start = cal.date(from: cal.dateComponents([.year, .month], from: md)),
                       let end   = cal.date(byAdding: .month, value: 1, to: start) else { return nil }
-                let pts   = records.filter { $0.matchedSessionDate >= start && $0.matchedSessionDate < end }
-                                   .reduce(0) { $0 + $1.totalPoints }
-                return Bucket(id: "\(offset)", label: monthLabel(start), isCurrent: offset == 0, points: pts)
+                let s = bucketsFor(start: start, end: end)
+                return Bucket(id: "\(offset)", label: monthLabel(start), isCurrent: offset == 0, points: s.points, count: s.count, totalSeconds: s.totalSeconds)
             }
         }
     }
 
+    private func metricValue(_ bucket: Bucket) -> Double {
+        switch metric {
+        case .points:     return Double(bucket.points)
+        case .activities: return Double(bucket.count)
+        case .time:       return bucket.totalSeconds / 60.0
+        }
+    }
+
+    private var isEmpty: Bool { buckets.allSatisfy { metricValue($0) == 0 } }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
 
-            Text("Points Activity")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.appDarkText)
+            HStack(alignment: .center) {
+                Text("Activity")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.appDarkText)
+                Spacer()
+                // Metric toggle
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(.tertiarySystemFill))
+                        let slotW = geo.size.width / CGFloat(Metric.allCases.count)
+                        let idx   = Metric.allCases.firstIndex(of: metric) ?? 0
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color(.secondarySystemBackground))
+                            .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+                            .frame(width: slotW - 4, height: geo.size.height - 4)
+                            .offset(x: CGFloat(idx) * slotW + 2)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: metric)
+                        HStack(spacing: 0) {
+                            ForEach(Metric.allCases, id: \.self) { m in
+                                Button { withAnimation { metric = m } } label: {
+                                    Text(m.rawValue)
+                                        .font(.system(size: 11, weight: metric == m ? .bold : .regular))
+                                        .foregroundStyle(metric == m ? Color.appDarkText : Color.gray1)
+                                        .frame(maxWidth: .infinity)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.7)
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(width: 195, height: 30)
+            }
 
-            // Full-width W / M / Y slider
+            // Period slider (W / M / Y)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color(.tertiarySystemFill))
-
                     let slotW = geo.size.width / CGFloat(Period.allCases.count)
                     let idx   = Period.allCases.firstIndex(of: period) ?? 0
                     RoundedRectangle(cornerRadius: 8)
@@ -1015,7 +1022,6 @@ struct ActivityChartCard: View {
                         .frame(width: slotW - 6, height: geo.size.height - 6)
                         .offset(x: CGFloat(idx) * slotW + 3)
                         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: period)
-
                     HStack(spacing: 0) {
                         ForEach(Period.allCases, id: \.self) { p in
                             Button { withAnimation { period = p } } label: {
@@ -1030,7 +1036,7 @@ struct ActivityChartCard: View {
             }
             .frame(height: 36)
 
-            if buckets.allSatisfy({ $0.points == 0 }) {
+            if isEmpty {
                 Text(emptyStateMessage)
                     .font(.system(size: 12))
                     .foregroundStyle(Color.gray1)
@@ -1040,7 +1046,7 @@ struct ActivityChartCard: View {
                 Chart(buckets) { bucket in
                     BarMark(
                         x: .value("Period", bucket.label),
-                        y: .value("Points", bucket.points)
+                        y: .value(metric.rawValue, metricValue(bucket))
                     )
                     .foregroundStyle(bucket.isCurrent
                         ? AnyShapeStyle(LinearGradient(
@@ -1051,12 +1057,20 @@ struct ActivityChartCard: View {
                     .cornerRadius(5)
                 }
                 .chartYAxis {
-                    AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { _ in
+                    AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
                             .foregroundStyle(Color.gray2.opacity(0.25))
-                        AxisValueLabel()
-                            .font(.system(size: 9))
-                            .foregroundStyle(Color.gray1)
+                        AxisValueLabel {
+                            if metric == .time, let v = value.as(Double.self) {
+                                Text(formatMinutes(v))
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(Color.gray1)
+                            } else if let v = value.as(Double.self) {
+                                Text(v, format: .number)
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(Color.gray1)
+                            }
+                        }
                     }
                 }
                 .chartXAxis {
@@ -1068,6 +1082,7 @@ struct ActivityChartCard: View {
                 }
                 .frame(height: 130)
                 .animation(.easeInOut(duration: 0.25), value: period)
+                .animation(.easeInOut(duration: 0.25), value: metric)
             }
         }
         .padding(.vertical, 8)
@@ -1079,6 +1094,13 @@ struct ActivityChartCard: View {
         case .month: return "No matched workouts in the last 4 weeks."
         case .year:  return "No matched workouts in the last 12 months."
         }
+    }
+
+    private func formatMinutes(_ minutes: Double) -> String {
+        let h = Int(minutes) / 60
+        let m = Int(minutes) % 60
+        if h > 0 { return "\(h)h\(m > 0 ? " \(m)m" : "")" }
+        return "\(Int(minutes))m"
     }
 
     private func dayLabel(_ date: Date, offset: Int) -> String {
