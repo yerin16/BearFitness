@@ -55,17 +55,12 @@ struct MainTabView: View {
                     Text(AppTab.program.title)
                 }
 
-            NavigationStack {
-                Text("Profile")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                    .navigationTitle("Profile")
-            }
-            .tag(AppTab.profile)
-            .tabItem {
-                Image(systemName: AppTab.profile.icon)
-                Text(AppTab.profile.title)
-            }
+            ProfileView()
+                .tag(AppTab.profile)
+                .tabItem {
+                    Image(systemName: AppTab.profile.icon)
+                    Text(AppTab.profile.title)
+                }
         }
         .tint(Color.gradientBlue)
     }
